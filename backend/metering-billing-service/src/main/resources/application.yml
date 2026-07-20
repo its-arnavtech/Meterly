@@ -3,6 +3,16 @@ server:
 spring:
   application:
     name: metering-billing-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/meterly}
+    username: ${SPRING_DATASOURCE_USERNAME:meterly_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:meterly-app-local}
+    hikari:
+      maximum-pool-size: 10
+  flyway:
+    user: ${SPRING_FLYWAY_USER:meterly_owner}
+    password: ${SPRING_FLYWAY_PASSWORD:meterly-owner-local}
+    locations: classpath:db/migration
 management:
   endpoints:
     web:

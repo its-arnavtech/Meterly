@@ -5,8 +5,8 @@ services:
     image: postgres:16.10-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-meterly}
-      POSTGRES_USER: ${POSTGRES_USER:-meterly}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meterly-local}
+      POSTGRES_USER: ${POSTGRES_OWNER_USER:-meterly_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-meterly-owner-local}
     ports:
       - "5432:5432"
     healthcheck:
@@ -74,8 +74,10 @@ services:
       dockerfile: backend/metering-billing-service/Dockerfile
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-meterly}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-meterly}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-meterly-local}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_APP_USER:-meterly_app}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:-meterly-app-local}
+      SPRING_FLYWAY_USER: ${POSTGRES_OWNER_USER:-meterly_owner}
+      SPRING_FLYWAY_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-meterly-owner-local}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
@@ -97,4 +99,3 @@ services:
 volumes:
   postgres-data:
   redis-data:
-

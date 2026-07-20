@@ -1,5 +1,6 @@
 .idea/
 .vscode/
+.tools/
 *.iml
 *.log
 .DS_Store
@@ -11,4 +12,3 @@ frontend/.angular/
 
 .env
 !/.env.example
-
