@@ -1,0 +1,202 @@
+Meterly
+
+Multi-Tenant SaaS Billing & Usage-Metering Platform
+
+Project Design Document (PDD)
+
+Author: Arnav Kumar
+
+Version 1.0 — July 2026
+
+Status: Master reference document for the full build — supersedes and expands on the POC's validated design
+
+Table of Contents
+
+# 1. Introduction & Goals
+
+This document is the master design reference for Meterly, a multi-tenant SaaS billing and usage-metering platform. It expands the design that the POC validated (single-tenant metering, RLS isolation, live dashboard, one tiered invoice) into the full system: multi-tenant onboarding, a proper service boundary, a complete billing engine, and production-shaped non-functional requirements.
+
+Design principles that hold across every section below:
+
+Money math is never approximate. All monetary values use BigDecimal with an explicit rounding rule; there is no float or double anywhere in the billing domain.
+
+Tenant isolation is enforced at the database layer (PostgreSQL RLS), not only in application code, so a single missed WHERE clause cannot leak data across tenants.
+
+Every event-driven write is idempotent. At-least-once delivery from Kafka is assumed everywhere; consumers are written to be safe under redelivery.
+
+Scope is deliberately bounded. Multi-currency, tax, dunning, and mid-period proration are named and deferred rather than silently ignored (Section 14).
+
+# 2. System Architecture Overview
+
+The system is split into four backend services plus the Angular SPA. The split follows ownership of data and failure domains, not just code organization: tenant/plan data, usage ingestion, billing computation, and notification each fail and scale independently.
+
+| Service | Responsibility | Key technology |
+| --- | --- | --- |
+| tenant-service | Tenant CRUD, user accounts, plan assignment, API key issuance | Spring Boot, PostgreSQL |
+| ingestion-service | Accepts usage events, validates idempotency keys, publishes to Kafka | Spring Boot, Kafka producer |
+| metering-service | Consumes usage events idempotently, maintains Redis counters, pushes live updates | Spring Boot, Kafka consumer, Redis, STOMP |
+| billing-service | Runs period-close billing jobs, computes tiered pricing, generates invoices | Spring Boot, Quartz/Scheduled, PostgreSQL |
+| notification-service (stretch) | Sends invoice-ready and usage-threshold notifications | Spring Boot, stubbed email provider |
+| meterly-web | Angular SPA: auth, dashboard, billing, admin views | Angular 18, RxJS, Angular Material |
+
+End-to-end data flow: a tenant's client calls the ingestion endpoint with an idempotency key → ingestion-service publishes to the usage-events Kafka topic, partitioned by tenant_id → metering-service consumes, upserts into the append-only usage_event ledger (idempotency_key is unique), and increments a Redis counter for the open period → the counter update is pushed to subscribed dashboard clients over STOMP → at period close, billing-service reads the ledger (source of truth, never Redis) via a UsagePeriodAggregate, applies the tenant's PricingTier configuration, and writes an Invoice with InvoiceLineItems → meterly-web fetches tenant, dashboard, and invoice data over REST, augmented by the live WebSocket channel for usage counts.
+
+# 3. Domain Model & Data Design
+
+Core entities, with the fields that matter for correctness (not an exhaustive column list):
+
+| Entity | Key fields | Notes |
+| --- | --- | --- |
+| Tenant | id, name, status, created_at | Root of tenant isolation; every tenant-scoped table carries tenant_id |
+| AppUser | id, tenant_id, email, role, password_hash | role ∈ {TENANT_ADMIN, TENANT_USER} |
+| Plan | id, name, base_price, included_units | One plan can have many PricingTiers |
+| PricingTier | id, plan_id, from_unit, to_unit, unit_price | Marginal price for usage within a unit range above included_units |
+| Subscription | id, tenant_id, plan_id, start_date, end_date, status | Links a tenant to the plan in effect for a period |
+| MeteredResource | id, tenant_id, name, unit_label | e.g. “API calls”, unit_label “call” |
+| UsageEvent | id, tenant_id, resource_id, idempotency_key (unique), quantity, occurred_at | Append-only ledger; source of truth for billing |
+| UsagePeriodAggregate | id, tenant_id, resource_id, period_start, period_end, total_units | Materialized at period close from UsageEvent rows |
+| Invoice | id, tenant_id, period_start, period_end, status, total_amount | Unique on (tenant_id, period_start) to keep billing idempotent |
+| InvoiceLineItem | id, invoice_id, description, quantity, unit_price, amount | One row per pricing tier applied |
+
+Relationships: Tenant 1–N AppUser; Tenant 1–N Subscription; Plan 1–N PricingTier; Plan 1–N Subscription; Tenant 1–N MeteredResource; MeteredResource 1–N UsageEvent; Tenant/Resource/Period uniquely determine one UsagePeriodAggregate; Invoice 1–N InvoiceLineItem.
+
+# 4. Multi-Tenancy Strategy
+
+Chosen approach: shared database, shared schema, isolation enforced by PostgreSQL Row-Level Security — not schema-per-tenant. This is the more common approach at real SaaS scale (schema-per-tenant does not scale operationally past a few hundred tenants) and it is the harder, more instructive thing to get right for a portfolio project.
+
+Every tenant-scoped table has a tenant_id column and an RLS policy: USING (tenant_id = current_setting('app.tenant_id')::uuid).
+
+A Spring @Around aspect wraps every request: it reads the tenant_id claim from the validated JWT and issues SET LOCAL app.tenant_id = '<id>' at the start of the database transaction, so the setting is transaction-scoped and cannot leak across pooled connections.
+
+The failure mode this defends against: a developer forgets a WHERE tenant_id = ? clause in a new query. Without RLS this leaks data; with RLS the database itself returns zero rows for any tenant other than the one set on the session.
+
+A dedicated integration test asserts that a query with no tenant filter in its Java code still returns only the correct tenant's rows, under connection-pool reuse across two different tenants' requests in sequence.
+
+# 5. Usage Metering Pipeline
+
+## 5.1 Ingestion
+
+POST /v1/usage-events accepts { resource_id, idempotency_key, quantity, occurred_at }. The idempotency_key is client-generated (e.g., a UUID per real-world API call) so that a client-side retry after a timeout does not double-count usage the server actually received the first time.
+
+## 5.2 Kafka topic design
+
+Topic usage-events is partitioned by tenant_id, which preserves per-tenant ordering (needed so period aggregation sees events in a sane order) while allowing horizontal scaling of consumers across tenants.
+
+## 5.3 Idempotent consumption
+
+The metering-service consumer inserts into usage_event with ON CONFLICT (idempotency_key) DO NOTHING. Because Kafka is at-least-once, the same message can be redelivered after a consumer crash; the unique constraint makes redelivery a no-op rather than a double count. The Redis counter increment is only executed after the Postgres insert succeeds and reports a new row (not a conflict), so Redis never double-increments on redelivery either.
+
+## 5.4 Read path
+
+Redis holds a per-tenant, per-resource, per-open-period counter for fast dashboard reads. Postgres remains authoritative: a nightly reconciliation job re-sums UsageEvent rows for the open period and corrects the Redis value if it has drifted, and logs a warning when it does (drift should be zero in normal operation — this check exists to catch bugs, not to be relied on as a routine correction path).
+
+# 6. Billing & Invoicing Logic
+
+At period close, billing-service materializes UsagePeriodAggregate rows from UsageEvent for each tenant/resource.
+
+The active Subscription determines the Plan; the Plan's included_units and its PricingTier rows determine the tiered marginal pricing above that allowance.
+
+All arithmetic uses java.math.BigDecimal; the documented rounding rule is HALF_EVEN at the cent, applied once, at the final line-item amount — never on intermediate values.
+
+Invoice generation is idempotent: Invoice has a unique constraint on (tenant_id, period_start), so re-running the job for an already-invoiced period does nothing rather than producing a duplicate invoice.
+
+Explicitly deferred: multi-currency, tax computation, mid-period plan-change proration, dunning/retry on failed payment collection (there is no real payment collection in this project at all — invoices are generated, not charged).
+
+# 7. API Design
+
+| Method & path | Service | Purpose |
+| --- | --- | --- |
+| POST /v1/tenants | tenant-service | Create a tenant and its initial admin user |
+| POST /v1/auth/login | tenant-service | Issue a JWT for an AppUser |
+| GET /v1/resources | tenant-service | List the calling tenant's metered resources |
+| POST /v1/usage-events | ingestion-service | Ingest one usage event (idempotency_key required) |
+| GET /v1/usage/current | metering-service | Current-period usage counters for the calling tenant |
+| WS /ws/usage | metering-service | STOMP topic pushing live per-tenant usage updates |
+| POST /v1/billing/run | billing-service | Trigger period-close billing for a tenant (manual trigger for demo; a scheduler triggers it in steady state) |
+| GET /v1/invoices | billing-service | List the calling tenant's invoices |
+| GET /v1/invoices/{id} | billing-service | Fetch one invoice with its line items |
+
+# 8. Frontend Architecture (Angular)
+
+CoreModule: HTTP interceptor attaching the JWT, a WebSocket/STOMP service wrapping the live usage channel, route guards.
+
+AuthModule: login view, token storage in memory (not localStorage, to reduce XSS token-theft surface).
+
+DashboardModule: live usage view driven by an RxJS observable fed by the STOMP subscription; chart rendered with ngx-charts.
+
+BillingModule: invoice list and invoice detail views, plan/tier display.
+
+State management is plain RxJS services with Angular signals for local component state — NgRx is deliberately not used. At this scope, NgRx's boilerplate would be over-engineering; this is a scope decision worth being able to defend in an interview, not an oversight.
+
+# 9. Security & Auth
+
+Spring Security issues and validates JWTs; the tenant_id and role are claims embedded in the token.
+
+Roles: TENANT_ADMIN (manage plan, view billing) and TENANT_USER (view usage dashboard only).
+
+Passwords hashed with bcrypt; never logged, never returned in any response body.
+
+CORS restricted to the Angular SPA's origin only.
+
+The usage-ingestion endpoint is rate-limited per tenant via a Redis token bucket, so a misbehaving or malicious client cannot skew usage counters or run up an artificial bill for itself (or, in a shared-infra failure, for another tenant).
+
+Keycloak as an external identity provider is a named stretch goal (Section 13) — not required for the core design to be correct or complete.
+
+# 10. Non-Functional Requirements
+
+| Category | Requirement |
+| --- | --- |
+| Reliability | At-least-once Kafka delivery is assumed; all consumers are idempotent by construction, not by convention. |
+| Data integrity | No float/double in the billing domain; every monetary value is BigDecimal with one documented rounding rule. |
+| Observability | Structured JSON logs with a request/correlation ID; Micrometer metrics exposed for Prometheus; Grafana dashboard as a stretch goal. |
+| Scalability (design target, not load-tested) | metering-service consumers scale horizontally via Kafka consumer groups partitioned by tenant_id. |
+| Isolation | No cross-tenant data access is possible even with a missing application-layer filter, enforced by RLS. |
+
+# 11. Deployment & Infrastructure
+
+Local development: Docker Compose brings up PostgreSQL, Redis, Redpanda, and all Spring Boot services with one command.
+
+CI: GitHub Actions runs unit tests on every push; integration tests use Testcontainers to spin up real Postgres and Kafka/Redpanda instances rather than mocks.
+
+Kubernetes manifests (Deployments, Services, a ConfigMap per service) are a stretch goal for portfolio depth once the core system is functionally correct — not a prerequisite for a working demo.
+
+# 12. Testing Strategy
+
+| Layer | What is tested |
+| --- | --- |
+| Unit — billing | Tier-boundary edge cases (usage exactly at included_units, usage spanning two tiers, zero usage) against hand-calculated expected totals |
+| Integration — metering | Testcontainers Postgres + Redpanda: duplicate idempotency_key and simulated Kafka redelivery both produce exactly one counted event |
+| Integration — RLS | A query missing its tenant filter still returns only the correct tenant's rows under pooled-connection reuse |
+| Frontend — dashboard | Angular component test asserting the chart updates correctly given a mocked STOMP payload |
+| End-to-end — billing idempotency | Re-running the billing job for an already-invoiced period produces no duplicate Invoice row |
+
+# 13. Milestones & Phased Delivery Plan
+
+| Phase | Deliverable |
+| --- | --- |
+| Phase 0 — POC (see companion POC document) | Single-tenant metering, RLS proof, live dashboard, one tiered invoice — validates the riskiest design decisions before full build |
+| Phase 1 — Core MVP | Multi-tenant onboarding, full ingestion/metering/billing services, Angular auth + dashboard + billing views |
+| Phase 2 — Hardening | Rate limiting, RLS edge-case tests, reconciliation job, CI with Testcontainers |
+| Phase 3 — Stretch | Kubernetes manifests, Keycloak, Prometheus/Grafana observability, notification-service |
+
+# 14. Risks & Open Questions
+
+| Risk / question | Current position |
+| --- | --- |
+| Kafka operational overhead for a portfolio-scale project | Use Redpanda locally (Kafka-API compatible, single binary); document the substitution explicitly rather than silently pretending it's Kafka. |
+| RLS + connection pooling is the fiddliest integration point in the whole system | Treated as the highest-risk item; validated first, in the POC, before anything else is built on top of it. |
+| Scope creep toward a real payment processor | Explicitly out of scope for the entire project — Meterly generates invoices, it does not collect payment. Revisit only if there is a specific reason to add it later. |
+| Multi-currency and tax | Deferred indefinitely; named here so it is a deliberate decision, not a silent gap. |
+
+# 15. Appendix
+
+## 15.1 Glossary
+
+| Term | Definition |
+| --- | --- |
+| Tenant | A customer organization using Meterly; the unit of data isolation. |
+| Idempotency key | A client-supplied unique token allowing safe rejection of duplicate submissions. |
+| Row-Level Security (RLS) | PostgreSQL feature enforcing per-row access policies at the database layer. |
+| Tiered pricing | A billing model where different marginal unit prices apply above successive usage thresholds. |
+| Proration | Adjusting a charge for a partial billing period (out of scope for this project). |
+| Source of truth | In this design, PostgreSQL for usage and billing data; Redis is a read-optimized cache only. |

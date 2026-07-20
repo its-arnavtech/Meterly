@@ -1,0 +1,15 @@
+# Meterly Build Log
+(Append-only. Newest entries at the bottom. Never delete or rewrite prior entries.)
+
+## [Task 1] Repo bootstrap + Phase 0 POC — started
+- 2026-07-20T18:01:16.3606816-05:00: Inspected the repository and authoritative task prompt. Preserved the existing move of the two source documents into `Docs/` and this build log as Task 1 bootstrap work.
+- 2026-07-20T18:01:16.3606816-05:00: Confirmed GitHub CLI 2.95.0 is installed and restored authentication for `its-arnavtech`; the target remote is `https://github.com/its-arnavtech/Meterly.git` and the requested base branch is `main`.
+- 2026-07-20T18:01:16.3606816-05:00: `pandoc` is unavailable. Per the task instructions, selected the bundled Python runtime with `python-docx` for read-only extraction of `Docs/Meterly_POC.docx` and `Docs/Meterly_PDD.docx` into Markdown.
+- 2026-07-20T18:05:00-05:00: Extracted and read both source documents fully. Confirmed the Phase 0 boundary: one seeded tenant/admin, one resource, one two-tier plan, two Spring Boot services, one Angular SPA, and the four exit hypotheses only.
+- 2026-07-20T18:05:00-05:00: Chose Maven for the Java 21 multi-module build because its aggregator model makes the two-service CI gate explicit and reproducible with one `mvn verify` command. Selected Spring Boot 3.5.8, the supported Spring Boot 3 line consistent with the PDD.
+- 2026-07-20T18:05:00-05:00: Created branch `codex/ci-bootstrap`. Designed cumulative feature branches targeting `main` in dependency order so each feature receives an independent GitHub Actions, dependency-review, CodeQL, and Docker Compose contract audit before merge.
+- 2026-07-20T18:12:00-05:00: Dependency audit found Angular 18 runtime advisories rated high in 2026. Upgrading would violate the PDD's explicit Angular 18 requirement, so CI runs the production audit on every PR and blocks critical findings; Dependabot remains enabled for continuous visibility.
+
+## Flagged for doc update
+- 2026-07-20T18:12:00-05:00: Angular 18 is out of support and has known high-severity advisories. The authoritative POC/PDD should be updated to a supported Angular major before production use. Phase 0 remains on Angular 18 to preserve the mandated scope.
+- 2026-07-20T18:15:00.7359604-05:00: CI/bootstrap validation passed: `docker compose config --quiet`; Maven reactor `verify` on Java 21 (2 tests, 0 failures/errors, BUILD SUCCESS); Angular production build (220.34 kB initial bundle); Angular browser tests (1/1 SUCCESS); production npm audit returned exit 0 at the critical blocking threshold and reported the already-flagged 8 high Angular 18 findings.

@@ -1,0 +1,21 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+$meterly-primary: mat.m2-define-palette(mat.$m2-teal-palette);
+$meterly-accent: mat.m2-define-palette(mat.$m2-cyan-palette);
+$meterly-theme: mat.m2-define-light-theme((
+  color: (primary: $meterly-primary, accent: $meterly-accent),
+  typography: mat.m2-define-typography-config(),
+  density: 0
+));
+
+@include mat.all-component-themes($meterly-theme);
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}

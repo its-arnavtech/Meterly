@@ -1,0 +1,100 @@
+name: meterly
+
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-meterly}
+      POSTGRES_USER: ${POSTGRES_USER:-meterly}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meterly-local}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.4.7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redis-data:/data
+
+  redpanda:
+    image: redpandadata/redpanda:v25.3.6
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --node-id=0
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "19092:19092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  ingestion-service:
+    build:
+      context: .
+      dockerfile: backend/ingestion-service/Dockerfile
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
+    ports:
+      - "8081:8081"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  metering-billing-service:
+    build:
+      context: .
+      dockerfile: backend/metering-billing-service/Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-meterly}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-meterly}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-meterly-local}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres-data:
+  redis-data:
+
