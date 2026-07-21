@@ -56,6 +56,9 @@ services:
       dockerfile: backend/ingestion-service/Dockerfile
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      METERLY_API_KEY: ${METERLY_API_KEY:-meterly-poc-api-key}
+      METERLY_TENANT_ID: 11111111-1111-1111-1111-111111111111
+      METERLY_RESOURCE_ID: 55555555-5555-5555-5555-555555555555
       JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
     ports:
       - "8081:8081"

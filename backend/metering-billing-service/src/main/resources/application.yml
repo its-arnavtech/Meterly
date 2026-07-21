@@ -13,9 +13,28 @@ spring:
     user: ${SPRING_FLYWAY_USER:meterly_owner}
     password: ${SPRING_FLYWAY_PASSWORD:meterly-owner-local}
     locations: classpath:db/migration
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    consumer:
+      group-id: meterly-metering
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.meterly.billing.metering
+        spring.json.value.default.type: com.meterly.billing.metering.UsageEventMessage
+        spring.json.use.type.headers: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
 management:
   endpoints:
     web:
       exposure:
         include: health,info
-

@@ -3,9 +3,21 @@ server:
 spring:
   application:
     name: ingestion-service
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        spring.json.add.type.headers: false
+meterly:
+  ingestion:
+    api-key: ${METERLY_API_KEY:meterly-poc-api-key}
+    tenant-id: ${METERLY_TENANT_ID:11111111-1111-1111-1111-111111111111}
+    resource-id: ${METERLY_RESOURCE_ID:55555555-5555-5555-5555-555555555555}
 management:
   endpoints:
     web:
       exposure:
         include: health,info
-
