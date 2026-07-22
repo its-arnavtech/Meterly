@@ -9,4 +9,4 @@ FROM nginx:1.29-alpine
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /workspace/dist/meterly-web/browser /usr/share/nginx/html
 EXPOSE 4200
-HEALTHCHECK --interval=10s --timeout=3s --retries=20 CMD wget -q -O /dev/null http://localhost:4200/ || exit 1
+HEALTHCHECK --interval=10s --timeout=3s --retries=20 CMD wget -q -O /dev/null http://127.0.0.1:4200/ || exit 1

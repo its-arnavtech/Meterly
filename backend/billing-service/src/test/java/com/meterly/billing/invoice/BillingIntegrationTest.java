@@ -22,6 +22,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -62,6 +63,9 @@ class BillingIntegrationTest {
         mockMvc.perform(post("/v1/billing/run").header("Authorization", "Bearer " + userJwt)
                         .contentType("application/json").content("{\"period_start\":\"2026-07-01\",\"period_end\":\"2026-08-01\"}"))
                 .andExpect(status().isForbidden());
+        String adminJwt = jwtService.issue(new AuthPrincipal("admin@meterly.local", TENANT, "TENANT_ADMIN"));
+        mockMvc.perform(get("/v1/invoices/" + UUID.randomUUID()).header("Authorization", "Bearer " + adminJwt))
+                .andExpect(status().isNotFound());
     }
 
     private void insertUsage(long quantity) {

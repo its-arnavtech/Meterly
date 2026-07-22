@@ -27,7 +27,7 @@ public class BillingService {
         if (!periodEnd.isAfter(periodStart)) throw new IllegalArgumentException("period_end must be after period_start");
         UUID resourceId = jdbcTemplate.queryForObject("SELECT id FROM metered_resource ORDER BY name LIMIT 1", UUID.class);
         long totalUsage = materializeAggregate(tenantId, resourceId, periodStart, periodEnd);
-        PlanPricing pricing = activePricing(periodStart);
+        PlanPricing pricing = activePricing(periodStart, periodEnd);
         TieredPriceCalculator.BillingAmounts amounts = calculator.calculate(pricing.basePrice(), pricing.includedUnits(), pricing.tiers(), totalUsage);
         UUID invoiceId = UUID.randomUUID();
         List<UUID> inserted = jdbcTemplate.query("""
@@ -58,13 +58,13 @@ public class BillingService {
         return units;
     }
 
-    private PlanPricing activePricing(LocalDate periodStart) {
+    private PlanPricing activePricing(LocalDate periodStart, LocalDate periodEnd) {
         PlanRow plan = jdbcTemplate.queryForObject("""
                 SELECT p.id, p.name, p.base_price, p.included_units FROM subscription s
-                JOIN plan p ON p.id = s.plan_id WHERE s.status = 'ACTIVE' AND s.start_date <= ?
+                JOIN plan p ON p.id = s.plan_id WHERE s.status = 'ACTIVE' AND s.start_date < ?
                 AND (s.end_date IS NULL OR s.end_date >= ?) ORDER BY s.start_date DESC LIMIT 1
                 """, (rs, row) -> new PlanRow(rs.getObject("id", UUID.class), rs.getString("name"),
-                rs.getBigDecimal("base_price"), rs.getLong("included_units")), Date.valueOf(periodStart), Date.valueOf(periodStart));
+                rs.getBigDecimal("base_price"), rs.getLong("included_units")), Date.valueOf(periodEnd), Date.valueOf(periodStart));
         List<TieredPriceCalculator.PricingTier> tiers = jdbcTemplate.query("""
                 SELECT from_unit, to_unit, unit_price FROM pricing_tier WHERE plan_id = ? ORDER BY from_unit
                 """, (rs, row) -> new TieredPriceCalculator.PricingTier(rs.getLong("from_unit"),
