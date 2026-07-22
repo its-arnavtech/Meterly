@@ -138,6 +138,22 @@ services:
       timeout: 5s
       retries: 20
 
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "4200:4200"
+    depends_on:
+      tenant-service:
+        condition: service_healthy
+      ingestion-service:
+        condition: service_healthy
+      metering-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   redis-data:
