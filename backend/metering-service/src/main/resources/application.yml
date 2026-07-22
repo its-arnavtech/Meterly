@@ -25,6 +25,9 @@ spring:
         spring.json.value.default.type: com.meterly.platform.usage.UsageEventMessage
         spring.json.use.type.headers: false
 meterly:
+  reconciliation:
+    enabled: ${RECONCILIATION_ENABLED:true}
+    cron: ${RECONCILIATION_CRON:0 0 2 * * *}
   auth:
     jwt-secret: ${JWT_SECRET:meterly-local-development-secret-32}
     token-seconds: 3600
