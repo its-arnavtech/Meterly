@@ -14,10 +14,10 @@ spring:
       properties:
         spring.json.add.type.headers: false
 meterly:
-  ingestion:
-    api-key: ${METERLY_API_KEY:meterly-poc-api-key}
-    tenant-id: ${METERLY_TENANT_ID:11111111-1111-1111-1111-111111111111}
-    resource-id: ${METERLY_RESOURCE_ID:55555555-5555-5555-5555-555555555555}
+  tenant-service:
+    base-url: ${TENANT_SERVICE_URL:http://localhost:8080}
+  internal:
+    service-key: ${INTERNAL_SERVICE_KEY:meterly-internal-local-secret}
 management:
   endpoints:
     web:

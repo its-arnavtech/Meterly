@@ -1,9 +1,11 @@
 package com.meterly.ingestion.usage;
 
+import com.meterly.ingestion.security.ApiKeyPrincipal;
+import com.meterly.platform.usage.UsageEventMessage;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,33 +20,31 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping("/v1/usage-events")
 public class UsageEventController {
     private final KafkaTemplate<String, UsageEventMessage> kafkaTemplate;
-    private final UUID tenantId;
-    private final UUID defaultResourceId;
 
-    public UsageEventController(
-            KafkaTemplate<String, UsageEventMessage> kafkaTemplate,
-            @Value("${meterly.ingestion.tenant-id}") UUID tenantId,
-            @Value("${meterly.ingestion.resource-id}") UUID defaultResourceId
-    ) {
+    public UsageEventController(KafkaTemplate<String, UsageEventMessage> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
-        this.tenantId = tenantId;
-        this.defaultResourceId = defaultResourceId;
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> ingest(@Valid @RequestBody UsageEventRequest request) throws Exception {
+    public ResponseEntity<Map<String, Object>> ingest(
+            Authentication authentication,
+            @Valid @RequestBody UsageEventRequest request
+    ) throws Exception {
+        ApiKeyPrincipal principal = (ApiKeyPrincipal) authentication.getPrincipal();
+        if (!principal.resourceIds().contains(request.resourceId())) {
+            return ResponseEntity.status(403).body(Map.of("error", "Resource is not owned by API-key tenant"));
+        }
         UsageEventMessage event = new UsageEventMessage(
-                tenantId,
-                request.resourceId() == null ? defaultResourceId : request.resourceId(),
+                principal.tenantId(),
+                request.resourceId(),
                 request.idempotencyKey(),
                 request.quantity(),
                 request.occurredAt() == null ? Instant.now() : request.occurredAt()
         );
-        kafkaTemplate.send("usage-events", tenantId.toString(), event).get(5, TimeUnit.SECONDS);
+        kafkaTemplate.send("usage-events", principal.tenantId().toString(), event).get(5, TimeUnit.SECONDS);
         return ResponseEntity.accepted().body(Map.of(
                 "status", "accepted",
                 "idempotency_key", request.idempotencyKey()
         ));
     }
 }
-

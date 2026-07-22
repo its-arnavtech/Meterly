@@ -1,0 +1,28 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: tenant-service
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/meterly}
+    username: ${SPRING_DATASOURCE_USERNAME:meterly_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:meterly-app-local}
+    hikari:
+      maximum-pool-size: 10
+  flyway:
+    user: ${SPRING_FLYWAY_USER:meterly_owner}
+    password: ${SPRING_FLYWAY_PASSWORD:meterly-owner-local}
+    locations: classpath:db/migration
+meterly:
+  auth:
+    jwt-secret: ${JWT_SECRET:meterly-local-development-secret-32}
+    token-seconds: 3600
+  internal:
+    service-key: ${INTERNAL_SERVICE_KEY:meterly-internal-local-secret}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -23,6 +23,8 @@ CREATE TABLE app_user (
     UNIQUE (tenant_id, email)
 );
 
+CREATE UNIQUE INDEX app_user_email_ci_uidx ON app_user (lower(email));
+
 CREATE TABLE plan (
     id UUID PRIMARY KEY,
     name VARCHAR(120) NOT NULL UNIQUE,
@@ -55,17 +57,28 @@ CREATE TABLE metered_resource (
     tenant_id UUID NOT NULL REFERENCES tenant(id),
     name VARCHAR(120) NOT NULL,
     unit_label VARCHAR(40) NOT NULL,
+    UNIQUE (tenant_id, id),
     UNIQUE (tenant_id, name)
+);
+
+CREATE TABLE api_key (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenant(id),
+    label VARCHAR(120) NOT NULL,
+    key_hash CHAR(64) NOT NULL UNIQUE,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE usage_event (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL REFERENCES tenant(id),
-    resource_id UUID NOT NULL REFERENCES metered_resource(id),
+    resource_id UUID NOT NULL,
     idempotency_key UUID NOT NULL UNIQUE,
     quantity BIGINT NOT NULL CHECK (quantity > 0),
     occurred_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (tenant_id, resource_id) REFERENCES metered_resource(tenant_id, id)
 );
 
 CREATE INDEX usage_event_period_idx ON usage_event (tenant_id, resource_id, occurred_at);
@@ -73,12 +86,13 @@ CREATE INDEX usage_event_period_idx ON usage_event (tenant_id, resource_id, occu
 CREATE TABLE usage_period_aggregate (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL REFERENCES tenant(id),
-    resource_id UUID NOT NULL REFERENCES metered_resource(id),
+    resource_id UUID NOT NULL,
     period_start DATE NOT NULL,
     period_end DATE NOT NULL,
     total_units BIGINT NOT NULL CHECK (total_units >= 0),
     UNIQUE (tenant_id, resource_id, period_start),
-    CHECK (period_end > period_start)
+    CHECK (period_end > period_start),
+    FOREIGN KEY (tenant_id, resource_id) REFERENCES metered_resource(tenant_id, id)
 );
 
 CREATE TABLE invoice (
@@ -89,6 +103,7 @@ CREATE TABLE invoice (
     status VARCHAR(30) NOT NULL CHECK (status IN ('DRAFT', 'FINALIZED')),
     total_amount NUMERIC(19, 2) NOT NULL CHECK (total_amount >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, id),
     UNIQUE (tenant_id, period_start),
     CHECK (period_end > period_start)
 );
@@ -96,11 +111,12 @@ CREATE TABLE invoice (
 CREATE TABLE invoice_line_item (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL REFERENCES tenant(id),
-    invoice_id UUID NOT NULL REFERENCES invoice(id) ON DELETE CASCADE,
+    invoice_id UUID NOT NULL,
     description VARCHAR(240) NOT NULL,
     quantity BIGINT NOT NULL CHECK (quantity >= 0),
     unit_price NUMERIC(19, 6) NOT NULL CHECK (unit_price >= 0),
-    amount NUMERIC(19, 2) NOT NULL CHECK (amount >= 0)
+    amount NUMERIC(19, 2) NOT NULL CHECK (amount >= 0),
+    FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoice(tenant_id, id) ON DELETE CASCADE
 );
 
 ALTER TABLE tenant ENABLE ROW LEVEL SECURITY;
@@ -114,7 +130,7 @@ DECLARE
     table_name TEXT;
 BEGIN
     FOREACH table_name IN ARRAY ARRAY[
-        'app_user', 'subscription', 'metered_resource', 'usage_event',
+        'app_user', 'subscription', 'metered_resource', 'api_key', 'usage_event',
         'usage_period_aggregate', 'invoice', 'invoice_line_item'
     ]
     LOOP
@@ -128,8 +144,58 @@ BEGIN
 END
 $$;
 
+CREATE FUNCTION auth_lookup_user(p_email TEXT)
+RETURNS TABLE (tenant_id UUID, email VARCHAR, role VARCHAR, password_hash VARCHAR)
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+    SELECT u.tenant_id, u.email, u.role, u.password_hash
+    FROM app_user u
+    JOIN tenant t ON t.id = u.tenant_id
+    WHERE lower(u.email) = lower(p_email)
+      AND t.status = 'ACTIVE'
+    LIMIT 1
+$$;
+
+CREATE FUNCTION api_key_lookup_tenant(p_key_hash TEXT)
+RETURNS UUID
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+    SELECT k.tenant_id
+    FROM api_key k
+    JOIN tenant t ON t.id = k.tenant_id
+    WHERE k.key_hash = p_key_hash
+      AND k.active
+      AND t.status = 'ACTIVE'
+    LIMIT 1
+$$;
+
+REVOKE ALL ON FUNCTION auth_lookup_user(TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION api_key_lookup_tenant(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION auth_lookup_user(TEXT) TO meterly_app;
+GRANT EXECUTE ON FUNCTION api_key_lookup_tenant(TEXT) TO meterly_app;
+
 GRANT USAGE ON SCHEMA public TO meterly_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO meterly_app;
+
+INSERT INTO plan (id, name, base_price, included_units)
+VALUES
+    ('22222222-2222-2222-2222-222222222222', 'Developer', 49.00, 1000),
+    ('22222222-2222-2222-2222-222222222223', 'Growth', 99.00, 5000),
+    ('22222222-2222-2222-2222-222222222224', 'Scale', 249.00, 20000);
+
+INSERT INTO pricing_tier (id, plan_id, from_unit, to_unit, unit_price)
+VALUES
+    ('33333333-3333-3333-3333-333333333331', '22222222-2222-2222-2222-222222222222', 1001, NULL, 0.020000),
+    ('33333333-3333-3333-3333-333333333332', '22222222-2222-2222-2222-222222222223', 5001, 10000, 0.015000),
+    ('33333333-3333-3333-3333-333333333333', '22222222-2222-2222-2222-222222222223', 10001, NULL, 0.010000),
+    ('33333333-3333-3333-3333-333333333334', '22222222-2222-2222-2222-222222222224', 20001, 50000, 0.008000),
+    ('33333333-3333-3333-3333-333333333335', '22222222-2222-2222-2222-222222222224', 50001, NULL, 0.005000);
 
 INSERT INTO tenant (id, name, status)
 VALUES ('11111111-1111-1111-1111-111111111111', 'Meterly Demo', 'ACTIVE');
@@ -141,18 +207,6 @@ VALUES (
     'admin@meterly.local',
     'TENANT_ADMIN',
     '$2a$10$V8nf.aok3L2L51ql74UrY.yRNvI4C73kpcMutnji12hrPcuPOhYmO'
-);
-
-INSERT INTO plan (id, name, base_price, included_units)
-VALUES ('22222222-2222-2222-2222-222222222222', 'Developer', 49.00, 1000);
-
-INSERT INTO pricing_tier (id, plan_id, from_unit, to_unit, unit_price)
-VALUES (
-    '33333333-3333-3333-3333-333333333333',
-    '22222222-2222-2222-2222-222222222222',
-    1001,
-    NULL,
-    0.020000
 );
 
 INSERT INTO subscription (id, tenant_id, plan_id, start_date, status)
@@ -170,4 +224,12 @@ VALUES (
     '11111111-1111-1111-1111-111111111111',
     'API calls',
     'call'
+);
+
+INSERT INTO api_key (id, tenant_id, label, key_hash)
+VALUES (
+    '66666666-6666-6666-6666-666666666666',
+    '11111111-1111-1111-1111-111111111111',
+    'Local demo key',
+    '24d2469c28944edc3ed385e45cb9446daaa1f9a06a0f1932601d63695f02fdc0'
 );

@@ -10,10 +10,9 @@ import java.util.UUID;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record UsageEventRequest(
-        UUID resourceId,
+        @NotNull UUID resourceId,
         @NotNull UUID idempotencyKey,
         @Positive long quantity,
         Instant occurredAt
 ) {
 }
-

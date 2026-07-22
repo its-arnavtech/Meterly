@@ -17,9 +17,12 @@
   <packaging>pom</packaging>
 
   <name>Meterly</name>
-  <description>Multi-tenant SaaS billing and usage-metering POC</description>
+  <description>Multi-tenant SaaS billing and usage-metering platform</description>
 
   <modules>
+    <module>backend/platform-common</module>
+    <module>backend/database-schema</module>
+    <module>backend/tenant-service</module>
     <module>backend/ingestion-service</module>
     <module>backend/metering-billing-service</module>
   </modules>
@@ -76,4 +79,3 @@
     </pluginManagement>
   </build>
 </project>
-

@@ -1,4 +1,4 @@
-package com.meterly.ingestion.usage;
+package com.meterly.platform.usage;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -11,4 +11,3 @@ public record UsageEventMessage(
         Instant occurredAt
 ) {
 }
-

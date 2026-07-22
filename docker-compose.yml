@@ -44,20 +44,43 @@ services:
       timeout: 5s
       retries: 20
 
+  tenant-service:
+    build:
+      context: .
+      dockerfile: backend/tenant-service/Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-meterly}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_APP_USER:-meterly_app}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:-meterly-app-local}
+      SPRING_FLYWAY_USER: ${POSTGRES_OWNER_USER:-meterly_owner}
+      SPRING_FLYWAY_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-meterly-owner-local}
+      JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-meterly-internal-local-secret}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
   ingestion-service:
     build:
       context: .
       dockerfile: backend/ingestion-service/Dockerfile
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-      METERLY_API_KEY: ${METERLY_API_KEY:-meterly-poc-api-key}
-      METERLY_TENANT_ID: 11111111-1111-1111-1111-111111111111
-      METERLY_RESOURCE_ID: 55555555-5555-5555-5555-555555555555
-      JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
+      TENANT_SERVICE_URL: http://tenant-service:8080
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-meterly-internal-local-secret}
     ports:
       - "${INGESTION_HOST_PORT:-8181}:8081"
     depends_on:
       redpanda:
+        condition: service_healthy
+      tenant-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://localhost:8081/actuator/health | grep -q UP"]
@@ -75,6 +98,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:-meterly-app-local}
       SPRING_FLYWAY_USER: ${POSTGRES_OWNER_USER:-meterly_owner}
       SPRING_FLYWAY_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-meterly-owner-local}
+      SPRING_FLYWAY_ENABLED: "false"
       SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
@@ -86,6 +110,8 @@ services:
       redis:
         condition: service_healthy
       redpanda:
+        condition: service_healthy
+      tenant-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://localhost:8082/actuator/health | grep -q UP"]
