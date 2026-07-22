@@ -1,0 +1,105 @@
+<div class="ambient ambient-one"></div>
+<div class="ambient ambient-two"></div>
+
+@if (!auth.session()) {
+  <main class="login-shell">
+    <section class="brand-panel">
+      <div class="brand-mark">M</div>
+      <p class="eyebrow">METERLY / PHASE 0</p>
+      <h1>Usage you can trust.<br><span>Billing you can prove.</span></h1>
+      <p class="lede">A live proof of exact metering, tenant isolation, and invoice math—built for the retry-heavy real world.</p>
+      <div class="proof-row">
+        <div><strong>950</strong><span>unique events</span></div>
+        <div><strong>0</strong><span>duplicate counts</span></div>
+        <div><strong>&lt;2s</strong><span>live target</span></div>
+      </div>
+    </section>
+
+    <mat-card class="login-card" appearance="outlined">
+      <mat-card-header>
+        <mat-card-title>Welcome back</mat-card-title>
+        <mat-card-subtitle>Use the seeded Phase 0 administrator</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <form [formGroup]="loginForm" (ngSubmit)="login()">
+          <mat-form-field appearance="outline">
+            <mat-label>Email</mat-label>
+            <input matInput formControlName="email" type="email" autocomplete="username">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Password</mat-label>
+            <input matInput formControlName="password" type="password" autocomplete="current-password">
+          </mat-form-field>
+          @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+          <button mat-flat-button type="submit" [disabled]="busy() || loginForm.invalid">
+            @if (busy()) { <mat-spinner diameter="20"></mat-spinner> } @else { Enter workspace }
+          </button>
+        </form>
+        <div class="demo-note">
+          <span>Demo access</span>
+          <code>admin&#64;meterly.local / meterly-demo</code>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </main>
+} @else {
+  <div class="app-shell">
+    <header>
+      <a class="logo"><span>M</span> Meterly</a>
+      <nav aria-label="Primary">
+        <button [class.active]="activeView() === 'usage'" (click)="show('usage')">Usage</button>
+        <button [class.active]="activeView() === 'invoices'" (click)="show('invoices')">Invoices</button>
+      </nav>
+      <div class="account">
+        <div><strong>{{ auth.session()?.email }}</strong><span>{{ auth.session()?.role }}</span></div>
+        <button mat-stroked-button (click)="logout()">Sign out</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      @if (activeView() === 'usage') {
+        <section class="page-heading">
+          <div><p class="eyebrow">CURRENT BILLING PERIOD</p><h2>API usage</h2></div>
+          <div class="live-pill" [class.online]="usage.connected()"><i></i>{{ usage.connected() ? 'Live' : 'Connecting' }}</div>
+        </section>
+        <section class="metric-grid">
+          <article class="hero-metric">
+            <span>API calls</span>
+            <strong data-testid="usage-total">{{ usage.totalUnits() | number }}</strong>
+            <p>of 1,000 included this month</p>
+            <div class="meter"><i [style.width.%]="(usage.totalUnits() / 10) > 100 ? 100 : usage.totalUnits() / 10"></i></div>
+          </article>
+          <article class="price-card"><span>Projected base</span><strong>{{ 49 | currency }}</strong><p>+$0.02 per call after 1,000</p></article>
+          <article class="event-card"><span>Pipeline status</span><strong>{{ activity() }}</strong><button mat-flat-button (click)="emitUsage()">Publish one call</button></article>
+        </section>
+        <section class="flow-card">
+          <div><b>1</b><span>Ingestion API<small>API key validated</small></span></div><i></i>
+          <div><b>2</b><span>Redpanda<small>tenant-keyed event</small></span></div><i></i>
+          <div><b>3</b><span>PostgreSQL<small>idempotent ledger</small></span></div><i></i>
+          <div><b>4</b><span>Live counter<small>STOMP broadcast</small></span></div>
+        </section>
+      } @else {
+        <section class="page-heading">
+          <div><p class="eyebrow">BILLING</p><h2>Invoices</h2></div>
+          <button mat-flat-button (click)="runBilling()" [disabled]="busy()">Run current period</button>
+        </section>
+        @if (selectedInvoice(); as invoice) {
+          <section class="invoice-card">
+            <div class="invoice-top">
+              <div><span>INVOICE</span><strong>#{{ invoice.id.slice(0, 8).toUpperCase() }}</strong></div>
+              <div><span>PERIOD</span><strong>{{ invoice.periodStart | date }} — {{ invoice.periodEnd | date }}</strong></div>
+              <div class="status">{{ invoice.status }}</div>
+            </div>
+            <div class="line-header"><span>Description</span><span>Qty</span><span>Unit price</span><span>Amount</span></div>
+            @for (line of invoice.lineItems; track line.id) {
+              <div class="line-item"><span>{{ line.description }}</span><span>{{ line.quantity | number }}</span><span>{{ line.unitPrice | currency:'USD':'symbol':'1.2-6' }}</span><span>{{ line.amount | currency }}</span></div>
+            }
+            <div class="invoice-total"><span>Total due</span><strong>{{ invoice.totalAmount | currency }}</strong></div>
+          </section>
+        } @else {
+          <section class="empty-state"><div>∅</div><h3>No invoice yet</h3><p>Run the current period to materialize usage and prove the tier calculation.</p></section>
+        }
+      }
+    </main>
+  </div>
+}

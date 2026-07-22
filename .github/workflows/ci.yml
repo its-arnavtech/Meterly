@@ -29,7 +29,7 @@ jobs:
         run: mvn --batch-mode --no-transfer-progress verify
 
   frontend:
-    name: Frontend / Angular 18
+    name: Frontend / Angular 21
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -46,9 +46,7 @@ jobs:
       - run: npm run test:ci
       - run: npm run build
       - name: Audit production dependencies
-        # Angular 18 is mandated by the PDD but is EOL. High-severity Angular
-        # advisories are tracked in context.md; critical runtime findings block.
-        run: npm audit --omit=dev --audit-level=critical
+        run: npm audit --omit=dev --audit-level=high
 
   compose:
     name: Docker Compose contract

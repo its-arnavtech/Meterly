@@ -1,0 +1,84 @@
+:host { display: block; min-height: 100vh; position: relative; overflow: hidden; }
+.ambient { position: fixed; border-radius: 999px; filter: blur(110px); opacity: .22; pointer-events: none; }
+.ambient-one { width: 440px; height: 440px; background: #2dd4bf; right: -180px; top: -180px; }
+.ambient-two { width: 360px; height: 360px; background: #60a5fa; left: -180px; bottom: -220px; }
+.eyebrow { margin: 0; color: #0f766e; font-size: .72rem; font-weight: 800; letter-spacing: .16em; }
+.login-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, .8fr); align-items: center; gap: 7vw; max-width: 1280px; margin: auto; padding: 7vw; }
+.brand-mark, .logo span { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: white; background: #0f766e; font-weight: 900; box-shadow: 0 12px 35px #0f766e42; }
+.brand-panel h1 { margin: 28px 0; font-size: clamp(3.2rem, 6.8vw, 6.3rem); line-height: .92; letter-spacing: -.06em; }
+.brand-panel h1 span { color: #0f766e; }
+.lede { max-width: 690px; color: #475569; font-size: 1.15rem; line-height: 1.75; }
+.proof-row { display: flex; gap: 42px; margin-top: 50px; }
+.proof-row div { display: flex; flex-direction: column; }
+.proof-row strong { font-size: 1.55rem; }
+.proof-row span { color: #64748b; font-size: .78rem; }
+.login-card { padding: 28px 20px; border-color: #dbe5e7; border-radius: 24px; background: #ffffffd9; box-shadow: 0 30px 80px #0f172a12; backdrop-filter: blur(18px); }
+mat-card-title { font-size: 1.7rem !important; font-weight: 750; }
+form { display: grid; gap: 10px; margin-top: 28px; }
+mat-form-field, form button { width: 100%; }
+form button { height: 48px; }
+mat-spinner { display: inline-block; }
+.error { color: #b91c1c; margin: 0 0 8px; }
+.demo-note { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: .72rem; }
+.demo-note code { color: #0f766e; }
+.app-shell { min-height: 100vh; background: #f6f9f9; }
+header { position: relative; z-index: 2; height: 78px; display: flex; align-items: center; justify-content: space-between; padding: 0 max(28px, 5vw); background: #fff; border-bottom: 1px solid #e2e8f0; }
+.logo { display: flex; align-items: center; gap: 12px; font-size: 1.15rem; font-weight: 850; }
+.logo span { width: 34px; height: 34px; border-radius: 10px; }
+nav { display: flex; gap: 8px; }
+nav button { padding: 10px 16px; border: 0; border-radius: 10px; background: transparent; color: #64748b; font-weight: 700; cursor: pointer; }
+nav button.active { color: #0f766e; background: #ccfbf1; }
+.account { display: flex; align-items: center; gap: 18px; }
+.account div { display: flex; flex-direction: column; text-align: right; font-size: .78rem; }
+.account span { color: #64748b; font-size: .66rem; }
+.workspace { position: relative; z-index: 1; max-width: 1160px; margin: auto; padding: 64px 28px; }
+.page-heading { display: flex; align-items: end; justify-content: space-between; margin-bottom: 30px; }
+h2 { margin: 7px 0 0; font-size: 2.5rem; letter-spacing: -.04em; }
+.live-pill { display: flex; align-items: center; gap: 8px; color: #92400e; background: #fef3c7; border-radius: 99px; padding: 8px 13px; font-size: .72rem; font-weight: 800; }
+.live-pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.live-pill.online { color: #047857; background: #d1fae5; }
+.metric-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 18px; }
+.metric-grid article, .flow-card, .invoice-card, .empty-state { border: 1px solid #dce7e7; border-radius: 20px; background: #fff; box-shadow: 0 14px 40px #0f172a08; }
+.metric-grid article { min-height: 220px; padding: 28px; display: flex; flex-direction: column; }
+.metric-grid article > span { color: #64748b; font-size: .8rem; font-weight: 750; }
+.hero-metric strong { margin-top: 26px; font-size: 4.3rem; letter-spacing: -.06em; }
+.hero-metric p, .price-card p { color: #64748b; margin: 2px 0 20px; }
+.meter { height: 9px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin-top: auto; }
+.meter i { display: block; height: 100%; background: linear-gradient(90deg, #14b8a6, #0f766e); border-radius: inherit; transition: width .35s ease; }
+.price-card strong { margin: auto 0 0; font-size: 2.5rem; }
+.event-card strong { margin: auto 0; font-size: 1.05rem; line-height: 1.4; }
+.flow-card { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding: 26px; }
+.flow-card div { display: flex; align-items: center; gap: 12px; }
+.flow-card b { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; color: #0f766e; background: #ccfbf1; }
+.flow-card span { display: flex; flex-direction: column; font-size: .8rem; font-weight: 750; }
+.flow-card small { color: #94a3b8; font-weight: 500; }
+.flow-card > i { width: 5%; height: 1px; background: #cbd5e1; }
+.invoice-card { padding: 32px; }
+.invoice-top { display: grid; grid-template-columns: 1fr 2fr auto; gap: 28px; padding-bottom: 28px; border-bottom: 1px solid #e2e8f0; }
+.invoice-top div:not(.status) { display: flex; flex-direction: column; }
+.invoice-top span, .line-header { color: #64748b; font-size: .7rem; font-weight: 750; letter-spacing: .08em; }
+.status { align-self: start; padding: 7px 11px; border-radius: 99px; color: #047857; background: #d1fae5; font-size: .7rem; font-weight: 800; }
+.line-header, .line-item { display: grid; grid-template-columns: 1fr 90px 130px 120px; gap: 18px; padding: 18px 10px; }
+.line-header { margin-top: 12px; }
+.line-item { border-top: 1px solid #eef2f2; }
+.line-header span:not(:first-child), .line-item span:not(:first-child) { text-align: right; }
+.invoice-total { display: flex; justify-content: flex-end; align-items: baseline; gap: 32px; padding: 28px 10px 4px; border-top: 2px solid #0f172a; }
+.invoice-total strong { font-size: 2rem; }
+.empty-state { padding: 80px; text-align: center; color: #64748b; }
+.empty-state div { font-size: 3rem; color: #0f766e; }
+.empty-state h3 { color: #0f172a; font-size: 1.5rem; }
+@media (max-width: 900px) {
+  .login-shell { grid-template-columns: 1fr; }
+  .brand-panel { padding-top: 40px; }
+  .metric-grid { grid-template-columns: 1fr; }
+  .flow-card { align-items: flex-start; gap: 20px; overflow-x: auto; }
+  .account div { display: none; }
+}
+@media (max-width: 620px) {
+  header { padding: 0 16px; }
+  nav button { padding: 8px; }
+  .account button { min-width: auto; }
+  .proof-row { gap: 18px; }
+  .line-header, .line-item { grid-template-columns: 1fr 70px 90px; }
+  .line-header span:nth-child(3), .line-item span:nth-child(3) { display: none; }
+}

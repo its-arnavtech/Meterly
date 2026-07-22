@@ -8,9 +8,11 @@ COPY backend/metering-billing-service/src backend/metering-billing-service/src
 RUN mvn -B -ntp -pl backend/metering-billing-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre
-RUN useradd --system --uid 10001 meterly
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 meterly
 USER meterly
 COPY --from=build /workspace/backend/metering-billing-service/target/metering-billing-service-*.jar /app.jar
 EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "/app.jar"]
-

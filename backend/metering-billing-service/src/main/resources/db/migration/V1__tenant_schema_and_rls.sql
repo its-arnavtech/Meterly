@@ -140,7 +140,7 @@ VALUES (
     '11111111-1111-1111-1111-111111111111',
     'admin@meterly.local',
     'TENANT_ADMIN',
-    '$2a$10$7EqJtq98hPqEX7fNZaFWoO5n5nZ4GxHU6fYvQnbV3VfB6Wf8YvP5u'
+    '$2a$10$V8nf.aok3L2L51ql74UrY.yRNvI4C73kpcMutnji12hrPcuPOhYmO'
 );
 
 INSERT INTO plan (id, name, base_price, included_units)
@@ -171,4 +171,3 @@ VALUES (
     'API calls',
     'call'
 );
-

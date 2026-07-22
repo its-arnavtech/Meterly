@@ -8,9 +8,11 @@ COPY backend/ingestion-service/src backend/ingestion-service/src
 RUN mvn -B -ntp -pl backend/ingestion-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre
-RUN useradd --system --uid 10001 meterly
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 meterly
 USER meterly
 COPY --from=build /workspace/backend/ingestion-service/target/ingestion-service-*.jar /app.jar
 EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "/app.jar"]
-

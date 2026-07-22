@@ -3,6 +3,8 @@ server:
 spring:
   application:
     name: metering-billing-service
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/meterly}
     username: ${SPRING_DATASOURCE_USERNAME:meterly_app}
@@ -33,6 +35,12 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false
+meterly:
+  auth:
+    jwt-secret: ${JWT_SECRET:meterly-local-development-secret-32}
+    token-seconds: 3600
+    tenant-id: ${METERLY_TENANT_ID:11111111-1111-1111-1111-111111111111}
+  ingestion-api-key: ${METERLY_API_KEY:meterly-poc-api-key}
 management:
   endpoints:
     web:

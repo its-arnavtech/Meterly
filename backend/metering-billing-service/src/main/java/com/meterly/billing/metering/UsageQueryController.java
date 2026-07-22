@@ -1,7 +1,8 @@
 package com.meterly.billing.metering;
 
+import com.meterly.billing.auth.AuthPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,9 +23,10 @@ public class UsageQueryController {
 
     @GetMapping("/current")
     public Map<String, Object> current(
-            @RequestHeader("X-Tenant-Id") UUID tenantId,
+            Authentication authentication,
             @RequestParam("resource_id") UUID resourceId
     ) {
+        UUID tenantId = ((AuthPrincipal) authentication.getPrincipal()).tenantId();
         String period = YearMonth.now(ZoneOffset.UTC).toString();
         return Map.of(
                 "tenant_id", tenantId,
@@ -34,4 +36,3 @@ public class UsageQueryController {
         );
     }
 }
-

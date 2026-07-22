@@ -19,8 +19,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest(properties =
-        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration")
+@SpringBootTest(properties = "spring.autoconfigure.exclude=" +
+        "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration," +
+        "org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration")
 @Testcontainers
 @Import(TenantRlsIntegrationTest.QueryConfiguration.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

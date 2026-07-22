@@ -25,8 +25,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(properties =
-        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration")
+@SpringBootTest(properties = "spring.autoconfigure.exclude=" +
+        "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration," +
+        "org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration")
 @Testcontainers
 @Import(BillingIntegrationTest.FixtureConfiguration.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -125,4 +126,3 @@ class BillingIntegrationTest {
         }
     }
 }
-
