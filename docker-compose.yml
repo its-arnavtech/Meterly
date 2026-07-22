@@ -73,11 +73,14 @@ services:
       dockerfile: backend/ingestion-service/Dockerfile
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SPRING_DATA_REDIS_HOST: redis
       TENANT_SERVICE_URL: http://tenant-service:8080
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-meterly-internal-local-secret}
     ports:
       - "${INGESTION_HOST_PORT:-8181}:8081"
     depends_on:
+      redis:
+        condition: service_healthy
       redpanda:
         condition: service_healthy
       tenant-service:

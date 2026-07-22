@@ -15,7 +15,11 @@ import java.util.List;
 @Configuration
 public class SecurityConfiguration {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, ApiKeyFilter apiKeyFilter) throws Exception {
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            ApiKeyFilter apiKeyFilter,
+            UsageRateLimitFilter usageRateLimitFilter
+    ) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -24,6 +28,7 @@ public class SecurityConfiguration {
                         .requestMatchers("/actuator/health", "/actuator/info", "/error").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(apiKeyFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(usageRateLimitFilter, ApiKeyFilter.class)
                 .build();
     }
 

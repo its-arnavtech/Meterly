@@ -4,6 +4,8 @@ import com.meterly.ingestion.security.ApiKeyFilter;
 import com.meterly.ingestion.security.ApiKeyPrincipal;
 import com.meterly.ingestion.security.SecurityConfiguration;
 import com.meterly.ingestion.security.TenantServiceClient;
+import com.meterly.ingestion.security.TenantRateLimiter;
+import com.meterly.ingestion.security.UsageRateLimitFilter;
 import com.meterly.platform.usage.UsageEventMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(UsageEventController.class)
-@Import({SecurityConfiguration.class, ApiKeyFilter.class})
+@Import({SecurityConfiguration.class, ApiKeyFilter.class, UsageRateLimitFilter.class})
 class UsageEventControllerTest {
     private static final UUID TENANT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID RESOURCE_ID = UUID.fromString("55555555-5555-5555-5555-555555555555");
@@ -38,6 +40,9 @@ class UsageEventControllerTest {
 
     @MockitoBean
     private TenantServiceClient tenantServiceClient;
+
+    @MockitoBean
+    private TenantRateLimiter tenantRateLimiter;
 
     @Test
     void rejectsMissingApiKey() throws Exception {
@@ -53,6 +58,7 @@ class UsageEventControllerTest {
                 .thenReturn(Optional.of(new ApiKeyPrincipal(TENANT_ID, Set.of(RESOURCE_ID))));
         when(kafkaTemplate.send(eq("usage-events"), any(String.class), any(UsageEventMessage.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
+        when(tenantRateLimiter.consume(TENANT_ID)).thenReturn(TenantRateLimiter.Decision.granted());
 
         mockMvc.perform(post("/v1/usage-events")
                         .header("X-Api-Key", "meterly-poc-api-key")

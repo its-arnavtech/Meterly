@@ -14,6 +14,9 @@ spring:
       properties:
         spring.json.add.type.headers: false
 meterly:
+  rate-limit:
+    capacity: ${RATE_LIMIT_CAPACITY:20}
+    refill-per-second: ${RATE_LIMIT_REFILL_PER_SECOND:10}
   tenant-service:
     base-url: ${TENANT_SERVICE_URL:http://localhost:8080}
   internal:

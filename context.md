@@ -160,3 +160,13 @@ All requested upgrade work is resolved and validated. The only changes relative 
 - Added full-stack Compose smoke validation to CI and raised dependency review from critical-only to high severity. CodeQL and the existing backend/frontend/build/audit gates remain intact.
 
 None of these deviations changes the target architecture in the PDD. They clarify credential bootstrap, billing ambiguity, tenant-scoped idempotency, framework error dispatch, delivery workflow, or local execution details.
+
+## [Task 4] Phase 2 Hardening — started
+
+- 2026-07-22T17:03:12-05:00: Read `Docs/Meterly_PDD.md` and the complete Phase 0, Angular-upgrade, and Phase 1 history before starting Phase 2. Preserved the PDD/POC DOCX files unchanged and based the work on verified Phase 1 commit `31bf9b0` / draft PR #9. Phase 2 continues as cumulative branch-per-feature draft PRs; no Phase 3 work is included.
+
+### [Task 4] Per-tenant ingestion rate-limit checkpoint
+
+- Implemented an atomic Redis token bucket on `POST /v1/usage-events`, after API-key authentication, keyed as `rate-limit:usage:{tenantId}`. The default demo policy is burst capacity `20` and refill `10 tokens/second`, both environment-configurable. The PDD specifies neither values nor mandatory plan coupling; a flat tenant-scoped policy keeps ingestion independent of mutable billing-plan configuration while providing a defensible short burst and sustained demo load. Plan-proportional limits can be added only after the PDD defines their commercial semantics.
+- Exhausted buckets return HTTP `429` with integer `Retry-After`; Redis performs refill, consume, persistence, and expiry in one Lua script so concurrent ingestion instances cannot overdraw a bucket. Compose now supplies Redis to ingestion-service and waits for Redis health.
+- Real Redis Testcontainers validation passed `4/4` ingestion tests. With test capacity `3` / refill `1 token/second`, actual HTTP evidence was `tenant_a=[202, 202, 202, 429, 429]`, `retry_after=[1,1]`, while a different tenant in the same window received `tenant_b=[202]`. This proves throttling is tenant-scoped rather than global.
