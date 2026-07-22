@@ -29,11 +29,15 @@ public final class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        Optional<AuthPrincipal> principal = header != null && header.startsWith("Bearer ")
-                ? jwtService.verify(header.substring(7))
-                : Optional.empty();
+        boolean bearerSupplied = header != null && header.startsWith("Bearer ");
+        Optional<AuthPrincipal> principal = bearerSupplied
+                ? jwtService.verify(header.substring(7)) : Optional.empty();
 
         if (principal.isEmpty()) {
+            if (bearerSupplied) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid bearer token");
+                return;
+            }
             filterChain.doFilter(request, response);
             return;
         }
