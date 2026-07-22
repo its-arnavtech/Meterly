@@ -88,17 +88,14 @@ services:
       timeout: 5s
       retries: 20
 
-  metering-billing-service:
+  metering-service:
     build:
       context: .
-      dockerfile: backend/metering-billing-service/Dockerfile
+      dockerfile: backend/metering-service/Dockerfile
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-meterly}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_APP_USER:-meterly_app}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:-meterly-app-local}
-      SPRING_FLYWAY_USER: ${POSTGRES_OWNER_USER:-meterly_owner}
-      SPRING_FLYWAY_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-meterly-owner-local}
-      SPRING_FLYWAY_ENABLED: "false"
       SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
@@ -115,6 +112,28 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  billing-service:
+    build:
+      context: .
+      dockerfile: backend/billing-service/Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-meterly}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_APP_USER:-meterly_app}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:-meterly-app-local}
+      JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      tenant-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8083/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
       retries: 20

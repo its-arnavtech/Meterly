@@ -24,7 +24,8 @@
     <module>backend/database-schema</module>
     <module>backend/tenant-service</module>
     <module>backend/ingestion-service</module>
-    <module>backend/metering-billing-service</module>
+    <module>backend/metering-service</module>
+    <module>backend/billing-service</module>
   </modules>
 
   <properties>

@@ -74,11 +74,12 @@ CREATE TABLE usage_event (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL REFERENCES tenant(id),
     resource_id UUID NOT NULL,
-    idempotency_key UUID NOT NULL UNIQUE,
+    idempotency_key UUID NOT NULL,
     quantity BIGINT NOT NULL CHECK (quantity > 0),
     occurred_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    FOREIGN KEY (tenant_id, resource_id) REFERENCES metered_resource(tenant_id, id)
+    FOREIGN KEY (tenant_id, resource_id) REFERENCES metered_resource(tenant_id, id),
+    UNIQUE (tenant_id, idempotency_key)
 );
 
 CREATE INDEX usage_event_period_idx ON usage_event (tenant_id, resource_id, occurred_at);

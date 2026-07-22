@@ -1,0 +1,20 @@
+server:
+  port: 8083
+spring:
+  application:
+    name: billing-service
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/meterly}
+    username: ${SPRING_DATASOURCE_USERNAME:meterly_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:meterly-app-local}
+meterly:
+  auth:
+    jwt-secret: ${JWT_SECRET:meterly-local-development-secret-32}
+    token-seconds: 3600
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

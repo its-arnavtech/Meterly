@@ -5,7 +5,8 @@ COPY backend/platform-common/pom.xml backend/platform-common/pom.xml
 COPY backend/database-schema/pom.xml backend/database-schema/pom.xml
 COPY backend/tenant-service/pom.xml backend/tenant-service/pom.xml
 COPY backend/ingestion-service/pom.xml backend/ingestion-service/pom.xml
-COPY backend/metering-billing-service/pom.xml backend/metering-billing-service/pom.xml
+COPY backend/metering-service/pom.xml backend/metering-service/pom.xml
+COPY backend/billing-service/pom.xml backend/billing-service/pom.xml
 RUN mvn -B -ntp -pl backend/ingestion-service -am dependency:go-offline
 COPY backend/platform-common/src backend/platform-common/src
 COPY backend/ingestion-service/src backend/ingestion-service/src

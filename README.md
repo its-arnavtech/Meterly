@@ -5,7 +5,8 @@ Meterly is a multi-tenant SaaS usage-metering and tiered-billing platform. Phase
 ## Repository layout
 
 - `backend/ingestion-service`: usage-event HTTP API and Kafka producer
-- `backend/metering-billing-service`: idempotent metering, Redis counters, STOMP updates, and billing
+- `backend/metering-service`: idempotent Kafka consumption, Redis counters, and tenant-scoped STOMP updates
+- `backend/billing-service`: tiered pricing, billing runs, and tenant-isolated invoices
 - `frontend`: Angular 18 SPA
 - `Docs`: read-only POC/PDD source documents and generated Markdown extracts
 - `docker-compose.yml`: PostgreSQL 16, Redis, Redpanda, and both backend services

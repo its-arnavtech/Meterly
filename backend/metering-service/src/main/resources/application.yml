@@ -1,0 +1,35 @@
+server:
+  port: 8082
+spring:
+  application:
+    name: metering-service
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/meterly}
+    username: ${SPRING_DATASOURCE_USERNAME:meterly_app}
+    password: ${SPRING_DATASOURCE_PASSWORD:meterly-app-local}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    consumer:
+      group-id: meterly-metering
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.meterly.platform.usage
+        spring.json.value.default.type: com.meterly.platform.usage.UsageEventMessage
+        spring.json.use.type.headers: false
+meterly:
+  auth:
+    jwt-secret: ${JWT_SECRET:meterly-local-development-secret-32}
+    token-seconds: 3600
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
