@@ -101,6 +101,9 @@ jobs:
       - name: Verify three live tenants, idempotency, STOMP, RBAC, and invoices
         working-directory: frontend
         run: node scripts/phase1-smoke.mjs
+      - name: Verify live tenant-scoped rate-limit isolation
+        working-directory: frontend
+        run: node scripts/phase2-hardening-smoke.mjs
       - name: Capture container evidence
         if: always()
         run: docker compose ps && docker compose logs --no-color --tail=200
