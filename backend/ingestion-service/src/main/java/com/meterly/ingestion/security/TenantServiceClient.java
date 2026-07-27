@@ -1,5 +1,7 @@
 package com.meterly.ingestion.security;
 
+import com.meterly.platform.web.CorrelationIdFilter;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -25,11 +27,15 @@ public class TenantServiceClient {
     }
 
     public Optional<ApiKeyPrincipal> introspect(String apiKey) {
+        String correlationId = MDC.get(CorrelationIdFilter.MDC_KEY);
         try {
-            IntrospectionResponse response = restClient.post()
+            RestClient.RequestBodySpec request = restClient.post()
                     .uri("/internal/v1/api-keys/introspect")
-                    .header("X-Internal-Service-Key", internalServiceKey)
-                    .body(new IntrospectionRequest(apiKey))
+                    .header("X-Internal-Service-Key", internalServiceKey);
+            if (correlationId != null) {
+                request.header(CorrelationIdFilter.HEADER, correlationId);
+            }
+            IntrospectionResponse response = request.body(new IntrospectionRequest(apiKey))
                     .retrieve()
                     .body(IntrospectionResponse.class);
             if (response == null) {

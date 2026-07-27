@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meterly.platform.auth.JwtAuthenticationFilter;
 import com.meterly.platform.auth.JwtService;
 import com.meterly.platform.tenant.TenantTransactionAspect;
+import com.meterly.platform.web.CorrelationIdFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,11 @@ public class PlatformConfiguration {
     @Bean
     JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService) {
         return new JwtAuthenticationFilter(jwtService);
+    }
+
+    @Bean
+    CorrelationIdFilter correlationIdFilter() {
+        return new CorrelationIdFilter();
     }
 
     @Bean

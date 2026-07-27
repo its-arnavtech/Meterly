@@ -18,12 +18,15 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Clock;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @SpringBootTest(properties = "meterly.auth.jwt-secret=test-only-jwt-secret-at-least-32-bytes")
 @AutoConfigureMockMvc
@@ -54,6 +57,7 @@ class BillingIntegrationTest {
     @Test
     void invoiceIsCorrectIdempotentAndAdminOnly() throws Exception {
         try (TenantContext.Scope ignored = TenantContext.open(TENANT)) {
+            resetTenantData();
             insertUsage(1375);
             InvoiceView first = billingService.run(TENANT, LocalDate.of(2026, 7, 1), LocalDate.of(2026, 8, 1));
             InvoiceView second = billingService.run(TENANT, LocalDate.of(2026, 7, 1), LocalDate.of(2026, 8, 1));
@@ -66,8 +70,40 @@ class BillingIntegrationTest {
                         .contentType("application/json").content("{\"period_start\":\"2026-07-01\",\"period_end\":\"2026-08-01\"}"))
                 .andExpect(status().isForbidden());
         String adminJwt = jwtService.issue(new AuthPrincipal("admin@meterly.local", TENANT, "TENANT_ADMIN"));
-        mockMvc.perform(get("/v1/invoices/" + UUID.randomUUID()).header("Authorization", "Bearer " + adminJwt))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/v1/invoices/" + UUID.randomUUID())
+                        .header("Authorization", "Bearer " + adminJwt)
+                        .header("X-Correlation-ID", "billing-test-correlation"))
+                .andExpect(status().isNotFound())
+                .andExpect(header().string("X-Correlation-ID", "billing-test-correlation"));
+    }
+
+    @Test
+    void monthlySchedulerClosesPreviousPeriodExactlyOnce() {
+        try (TenantContext.Scope ignored = TenantContext.open(TENANT)) {
+            resetTenantData();
+            insertUsage(1375);
+        }
+        BillingScheduler scheduler = new BillingScheduler(
+                billingService,
+                jdbcTemplate,
+                Clock.fixed(Instant.parse("2026-08-01T03:00:00Z"), ZoneOffset.UTC)
+        );
+        BillingScheduler.BillingRunSummary first = scheduler.closePreviousPeriod();
+        BillingScheduler.BillingRunSummary second = scheduler.closePreviousPeriod();
+        assertThat(first).isEqualTo(new BillingScheduler.BillingRunSummary(1, 1, 0));
+        assertThat(second).isEqualTo(new BillingScheduler.BillingRunSummary(1, 1, 0));
+        try (TenantContext.Scope ignored = TenantContext.open(TENANT)) {
+            assertThat(billingService.list()).singleElement()
+                    .satisfies(invoice -> assertThat(invoice.totalAmount()).isEqualByComparingTo("56.50"));
+        }
+    }
+
+    private void resetTenantData() {
+        jdbcTemplate.queryForObject("select set_config('app.tenant_id', ?, false)", String.class, TENANT.toString());
+        jdbcTemplate.update("DELETE FROM invoice_line_item");
+        jdbcTemplate.update("DELETE FROM invoice");
+        jdbcTemplate.update("DELETE FROM usage_period_aggregate");
+        jdbcTemplate.update("DELETE FROM usage_event");
     }
 
     private void insertUsage(long quantity) {

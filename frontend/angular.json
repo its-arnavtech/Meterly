@@ -52,6 +52,7 @@
           "options": {
             "polyfills": ["zone.js", "zone.js/testing"],
             "tsConfig": "tsconfig.spec.json",
+            "karmaConfig": "karma.conf.cjs",
             "assets": [{"glob": "**/*", "input": "public"}],
             "styles": ["src/styles.scss"]
           }

@@ -10,6 +10,10 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:meterly_app}
     password: ${SPRING_DATASOURCE_PASSWORD}
 meterly:
+  billing:
+    scheduler:
+      enabled: ${BILLING_SCHEDULER_ENABLED:true}
+      cron: ${BILLING_SCHEDULER_CRON:0 0 3 1 * *}
   auth:
     jwt-secret: ${JWT_SECRET}
     token-seconds: 3600
@@ -18,3 +22,7 @@ management:
     web:
       exposure:
         include: health,info
+logging:
+  structured:
+    format:
+      console: logstash

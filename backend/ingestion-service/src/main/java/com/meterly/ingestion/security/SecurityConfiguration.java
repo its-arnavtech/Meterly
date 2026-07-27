@@ -1,5 +1,6 @@
 package com.meterly.ingestion.security;
 
+import com.meterly.platform.web.CorrelationIdFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -14,6 +15,11 @@ import java.util.List;
 
 @Configuration
 public class SecurityConfiguration {
+    @Bean
+    CorrelationIdFilter correlationIdFilter() {
+        return new CorrelationIdFilter();
+    }
+
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -37,7 +43,8 @@ public class SecurityConfiguration {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:4200", "http://127.0.0.1:4200"));
         configuration.setAllowedMethods(List.of("POST", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Content-Type", "X-Api-Key"));
+        configuration.setAllowedHeaders(List.of("Content-Type", "X-Api-Key", "X-Correlation-ID"));
+        configuration.setExposedHeaders(List.of("X-Correlation-ID"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

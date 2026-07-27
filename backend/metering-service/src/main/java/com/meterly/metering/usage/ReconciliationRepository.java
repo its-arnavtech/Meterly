@@ -18,7 +18,7 @@ public class ReconciliationRepository {
     }
 
     public List<UUID> listActiveTenantIds() {
-        return jdbcTemplate.queryForList("SELECT * FROM reconciliation_tenant_ids()", UUID.class);
+        return jdbcTemplate.queryForList("SELECT * FROM system_active_tenant_ids()", UUID.class);
     }
 
     @TenantTransactional
