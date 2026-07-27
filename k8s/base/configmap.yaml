@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: meterly-config
+data:
+  POSTGRES_DB: meterly
+  POSTGRES_USER: meterly_owner
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/meterly
+  SPRING_DATASOURCE_USERNAME: meterly_app
+  SPRING_FLYWAY_USER: meterly_owner
+  SPRING_DATA_REDIS_HOST: redis
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  TENANT_SERVICE_URL: http://tenant-service:8080
+  BILLING_SCHEDULER_ENABLED: "true"
+  RECONCILIATION_ENABLED: "true"
