@@ -19,15 +19,27 @@ spring:
       meterlyAppPassword: ${SPRING_FLYWAY_APP_PASSWORD}
 meterly:
   auth:
-    jwt-secret: ${JWT_SECRET}
+    provider: ${AUTH_PROVIDER:local}
+    jwt-secret: ${JWT_SECRET:}
     token-seconds: 3600
+    issuer-uri: ${KEYCLOAK_ISSUER_URI:}
+    jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
+    keycloak:
+      base-url: ${KEYCLOAK_BASE_URL:http://localhost:8090}
+      realm: ${KEYCLOAK_REALM:meterly}
+      login-client-id: ${KEYCLOAK_LOGIN_CLIENT_ID:meterly-web}
+      admin-client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:meterly-admin}
+      admin-client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:}
   internal:
     service-key: ${INTERNAL_SERVICE_KEY}
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
 logging:
   structured:
     format:

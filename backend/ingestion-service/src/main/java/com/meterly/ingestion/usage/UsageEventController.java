@@ -2,6 +2,8 @@ package com.meterly.ingestion.usage;
 
 import com.meterly.ingestion.security.ApiKeyPrincipal;
 import com.meterly.platform.usage.UsageEventMessage;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.ObjectProvider;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -20,9 +22,14 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping("/v1/usage-events")
 public class UsageEventController {
     private final KafkaTemplate<String, UsageEventMessage> kafkaTemplate;
+    private final MeterRegistry meterRegistry;
 
-    public UsageEventController(KafkaTemplate<String, UsageEventMessage> kafkaTemplate) {
+    public UsageEventController(
+            KafkaTemplate<String, UsageEventMessage> kafkaTemplate,
+            ObjectProvider<MeterRegistry> meterRegistry
+    ) {
         this.kafkaTemplate = kafkaTemplate;
+        this.meterRegistry = meterRegistry.getIfAvailable();
     }
 
     @PostMapping
@@ -42,6 +49,9 @@ public class UsageEventController {
                 request.occurredAt() == null ? Instant.now() : request.occurredAt()
         );
         kafkaTemplate.send("usage-events", principal.tenantId().toString(), event).get(5, TimeUnit.SECONDS);
+        if (meterRegistry != null) {
+            meterRegistry.counter("meterly.usage.ingestion", "tenant_id", principal.tenantId().toString()).increment();
+        }
         return ResponseEntity.accepted().body(Map.of(
                 "status", "accepted",
                 "idempotency_key", request.idempotencyKey()

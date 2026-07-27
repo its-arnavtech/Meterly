@@ -9,19 +9,32 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/meterly}
     username: ${SPRING_DATASOURCE_USERNAME:meterly_app}
     password: ${SPRING_DATASOURCE_PASSWORD}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        spring.json.add.type.headers: false
 meterly:
   billing:
     scheduler:
       enabled: ${BILLING_SCHEDULER_ENABLED:true}
       cron: ${BILLING_SCHEDULER_CRON:0 0 3 1 * *}
   auth:
-    jwt-secret: ${JWT_SECRET}
+    jwt-secret: ${JWT_SECRET:}
     token-seconds: 3600
+    issuer-uri: ${KEYCLOAK_ISSUER_URI:}
+    jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
 logging:
   structured:
     format:

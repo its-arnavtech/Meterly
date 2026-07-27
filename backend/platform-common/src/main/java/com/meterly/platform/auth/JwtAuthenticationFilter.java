@@ -5,6 +5,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -17,9 +18,11 @@ import java.util.Optional;
 
 public final class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
+    private final MeterRegistry meterRegistry;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, MeterRegistry meterRegistry) {
         this.jwtService = jwtService;
+        this.meterRegistry = meterRegistry;
     }
 
     @Override
@@ -35,6 +38,9 @@ public final class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (principal.isEmpty()) {
             if (bearerSupplied) {
+                if (meterRegistry != null) {
+                    meterRegistry.counter("meterly.auth.rejections", "reason", "invalid_bearer").increment();
+                }
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid bearer token");
                 return;
             }

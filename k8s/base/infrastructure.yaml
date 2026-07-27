@@ -36,9 +36,15 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d/01-keycloak.sql
+              subPath: 01-keycloak.sql
       volumes:
         - name: data
           emptyDir: {}
+        - name: init
+          configMap:
+            name: postgres-init
 ---
 apiVersion: v1
 kind: Service
@@ -159,3 +165,140 @@ spec:
     - name: kafka
       port: 9092
       targetPort: kafka
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.7.0
+          args: ["start-dev", "--import-realm"]
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          env:
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: jdbc:postgresql://postgres:5432/keycloak
+            - name: KC_DB_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: meterly-config
+                  key: POSTGRES_USER
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: meterly-secrets
+                  key: POSTGRES_PASSWORD
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: meterly-bootstrap
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: meterly-secrets
+                  key: KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD
+            - name: KEYCLOAK_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: meterly-secrets
+                  key: KEYCLOAK_ADMIN_CLIENT_SECRET
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: management
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: management
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          resources:
+            requests:
+              memory: 768Mi
+            limits:
+              memory: 1280Mi
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import/meterly-realm.json
+              subPath: meterly-realm.json
+      volumes:
+        - name: realm
+          configMap:
+            name: keycloak-realm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+spec:
+  selector:
+    app: keycloak
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-user-profile
+spec:
+  backoffLimit: 12
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: keycloak-user-profile
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: configure
+          image: quay.io/keycloak/keycloak:26.7.0
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              until /opt/keycloak/bin/kcadm.sh config credentials \
+                --server http://keycloak:8080 \
+                --realm meterly \
+                --client meterly-admin \
+                --secret "$KEYCLOAK_ADMIN_CLIENT_SECRET"; do
+                sleep 3
+              done
+              /opt/keycloak/bin/kcadm.sh update users/profile \
+                --realm meterly \
+                --file /config/meterly-user-profile.json
+          env:
+            - name: KEYCLOAK_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: meterly-secrets
+                  key: KEYCLOAK_ADMIN_CLIENT_SECRET
+          volumeMounts:
+            - name: profile
+              mountPath: /config/meterly-user-profile.json
+              subPath: meterly-user-profile.json
+              readOnly: true
+      volumes:
+        - name: profile
+          configMap:
+            name: keycloak-user-profile

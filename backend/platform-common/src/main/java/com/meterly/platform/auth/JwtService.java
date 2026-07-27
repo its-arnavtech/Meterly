@@ -10,9 +10,16 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
 public final class JwtService {
     private static final Base64.Encoder ENCODER = Base64.getUrlEncoder().withoutPadding();
@@ -23,6 +30,7 @@ public final class JwtService {
     private final ObjectMapper objectMapper;
     private final byte[] secret;
     private final long tokenSeconds;
+    private final JwtDecoder externalDecoder;
 
     public JwtService(ObjectMapper objectMapper, String secret, long tokenSeconds) {
         if (secret.getBytes(StandardCharsets.UTF_8).length < 32) {
@@ -31,9 +39,32 @@ public final class JwtService {
         this.objectMapper = objectMapper;
         this.secret = secret.getBytes(StandardCharsets.UTF_8).clone();
         this.tokenSeconds = tokenSeconds;
+        this.externalDecoder = null;
+    }
+
+    private JwtService(ObjectMapper objectMapper, JwtDecoder externalDecoder) {
+        this.objectMapper = objectMapper;
+        this.secret = new byte[0];
+        this.tokenSeconds = 0;
+        this.externalDecoder = externalDecoder;
+    }
+
+    public static JwtService forIssuer(ObjectMapper objectMapper, String issuerUri, String jwkSetUri) {
+        if (issuerUri == null || issuerUri.isBlank() || jwkSetUri == null || jwkSetUri.isBlank()) {
+            throw new IllegalArgumentException("Keycloak issuer and JWK set URIs are both required");
+        }
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                new JwtTimestampValidator(),
+                new JwtIssuerValidator(issuerUri)
+        ));
+        return new JwtService(objectMapper, decoder);
     }
 
     public String issue(AuthPrincipal principal) {
+        if (externalDecoder != null) {
+            throw new IllegalStateException("Tokens are issued by the configured external identity provider");
+        }
         try {
             Instant now = Instant.now();
             Map<String, Object> claims = new LinkedHashMap<>();
@@ -51,6 +82,9 @@ public final class JwtService {
     }
 
     public Optional<AuthPrincipal> verify(String token) {
+        if (externalDecoder != null) {
+            return verifyExternal(token);
+        }
         try {
             String[] parts = token.split("\\.");
             if (parts.length != 3 || !MessageDigest.isEqual(
@@ -68,6 +102,25 @@ public final class JwtService {
                     UUID.fromString((String) claims.get("tenant_id")),
                     (String) claims.get("role")
             ));
+        } catch (Exception ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<AuthPrincipal> verifyExternal(String token) {
+        try {
+            Jwt jwt = externalDecoder.decode(token);
+            String email = jwt.getClaimAsString("email");
+            if (email == null || email.isBlank()) {
+                email = jwt.getSubject();
+            }
+            String tenantId = jwt.getClaimAsString("tenant_id");
+            String role = jwt.getClaimAsString("role");
+            if (email == null || tenantId == null || role == null
+                    || !List.of("TENANT_ADMIN", "TENANT_USER").contains(role)) {
+                return Optional.empty();
+            }
+            return Optional.of(new AuthPrincipal(email, UUID.fromString(tenantId), role));
         } catch (Exception ignored) {
             return Optional.empty();
         }

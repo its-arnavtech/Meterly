@@ -60,7 +60,7 @@ jobs:
       - name: Run defensive integration suite with real infrastructure
         run: >-
           mvn --batch-mode --no-transfer-progress
-          -Dtest=TenantRlsHardeningIntegrationTest,TenantRateLimitIntegrationTest,IngestionPipelineIntegrationTest,UsageReconciliationIntegrationTest,BillingIntegrationTest
+          -Dtest=TenantRlsHardeningIntegrationTest,TenantRateLimitIntegrationTest,IngestionPipelineIntegrationTest,UsageReconciliationIntegrationTest,BillingIntegrationTest,KeycloakRoleEnforcementIntegrationTest,NotificationDeliveryServiceTest
           -Dsurefire.failIfNoSpecifiedTests=false test
       - name: Capture Testcontainers evidence
         if: always()
@@ -101,6 +101,8 @@ jobs:
             echo "POSTGRES_APP_PASSWORD=$(openssl rand -hex 32)"
             echo "JWT_SECRET=$(openssl rand -hex 48)"
             echo "INTERNAL_SERVICE_KEY=$(openssl rand -hex 32)"
+            echo "KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD=$(openssl rand -hex 32)"
+            echo "KEYCLOAK_ADMIN_CLIENT_SECRET=$(openssl rand -hex 32)"
           } > .env
       - name: Validate Compose model
         run: docker compose config --quiet
@@ -126,6 +128,8 @@ jobs:
             echo "POSTGRES_APP_PASSWORD=$(openssl rand -hex 32)"
             echo "JWT_SECRET=$(openssl rand -hex 48)"
             echo "INTERNAL_SERVICE_KEY=$(openssl rand -hex 32)"
+            echo "KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD=$(openssl rand -hex 32)"
+            echo "KEYCLOAK_ADMIN_CLIENT_SECRET=$(openssl rand -hex 32)"
           } > .env
       - name: Install smoke client dependency
         working-directory: frontend
@@ -138,6 +142,9 @@ jobs:
       - name: Verify live tenant-scoped rate-limit isolation
         working-directory: frontend
         run: node scripts/phase2-hardening-smoke.mjs
+      - name: Verify Keycloak, Prometheus/Grafana, and notifications
+        working-directory: frontend
+        run: node scripts/phase3-stretch-smoke.mjs
       - name: Capture container evidence
         if: always()
         run: docker compose ps && docker compose logs --no-color --tail=200

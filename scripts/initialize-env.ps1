@@ -28,6 +28,8 @@ $content = @(
     "POSTGRES_APP_PASSWORD=$(New-RandomSecret)"
     "JWT_SECRET=$(New-RandomSecret 48)"
     "INTERNAL_SERVICE_KEY=$(New-RandomSecret)"
+    "KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD=$(New-RandomSecret)"
+    "KEYCLOAK_ADMIN_CLIENT_SECRET=$(New-RandomSecret)"
 ) -join [Environment]::NewLine
 
 [System.IO.File]::WriteAllText($target, $content + [Environment]::NewLine)

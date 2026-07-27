@@ -15,6 +15,11 @@ spring:
       port: ${SPRING_DATA_REDIS_PORT:6379}
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
     consumer:
       group-id: meterly-metering
       auto-offset-reset: earliest
@@ -25,17 +30,24 @@ spring:
         spring.json.value.default.type: com.meterly.platform.usage.UsageEventMessage
         spring.json.use.type.headers: false
 meterly:
+  notifications:
+    usage-threshold: ${USAGE_NOTIFICATION_THRESHOLD:1000}
   reconciliation:
     enabled: ${RECONCILIATION_ENABLED:true}
     cron: ${RECONCILIATION_CRON:0 0 2 * * *}
   auth:
-    jwt-secret: ${JWT_SECRET}
+    jwt-secret: ${JWT_SECRET:}
     token-seconds: 3600
+    issuer-uri: ${KEYCLOAK_ISSUER_URI:}
+    jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
 logging:
   structured:
     format:

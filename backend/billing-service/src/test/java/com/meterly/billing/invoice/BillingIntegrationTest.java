@@ -3,14 +3,17 @@ package com.meterly.billing.invoice;
 import com.meterly.platform.auth.AuthPrincipal;
 import com.meterly.platform.auth.JwtService;
 import com.meterly.platform.tenant.TenantContext;
+import com.meterly.platform.notification.InvoiceGeneratedMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -23,6 +26,10 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,6 +60,7 @@ class BillingIntegrationTest {
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired JwtService jwtService;
     @Autowired MockMvc mockMvc;
+    @MockitoBean KafkaTemplate<String, InvoiceGeneratedMessage> kafkaTemplate;
 
     @Test
     void invoiceIsCorrectIdempotentAndAdminOnly() throws Exception {
@@ -65,6 +73,8 @@ class BillingIntegrationTest {
             assertThat(first.totalAmount()).isEqualByComparingTo("56.50");
             assertThat(first.lineItems()).hasSize(2);
         }
+        verify(kafkaTemplate, times(1))
+                .send(eq("invoice-generated"), eq(TENANT.toString()), any(InvoiceGeneratedMessage.class));
         String userJwt = jwtService.issue(new AuthPrincipal("viewer@meterly.test", TENANT, "TENANT_USER"));
         mockMvc.perform(post("/v1/billing/run").header("Authorization", "Bearer " + userJwt)
                         .contentType("application/json").content("{\"period_start\":\"2026-07-01\",\"period_end\":\"2026-08-01\"}"))

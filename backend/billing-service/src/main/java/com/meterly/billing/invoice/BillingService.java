@@ -1,8 +1,11 @@
 package com.meterly.billing.invoice;
 
 import com.meterly.platform.tenant.TenantTransactional;
+import com.meterly.platform.notification.InvoiceGeneratedMessage;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -11,6 +14,7 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,7 +24,20 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class BillingService {
     private final JdbcTemplate jdbcTemplate;
     private final TieredPriceCalculator calculator;
-    public BillingService(JdbcTemplate jdbcTemplate, TieredPriceCalculator calculator) { this.jdbcTemplate = jdbcTemplate; this.calculator = calculator; }
+    private final KafkaTemplate<String, InvoiceGeneratedMessage> kafkaTemplate;
+    private final MeterRegistry meterRegistry;
+
+    public BillingService(
+            JdbcTemplate jdbcTemplate,
+            TieredPriceCalculator calculator,
+            KafkaTemplate<String, InvoiceGeneratedMessage> kafkaTemplate,
+            MeterRegistry meterRegistry
+    ) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.calculator = calculator;
+        this.kafkaTemplate = kafkaTemplate;
+        this.meterRegistry = meterRegistry;
+    }
 
     @TenantTransactional
     public InvoiceView run(UUID tenantId, LocalDate periodStart, LocalDate periodEnd) {
@@ -42,7 +59,11 @@ public class BillingService {
             insertLineItem(tenantId, invoiceId, "Units " + charge.fromUnit() + "-" + upper,
                     charge.quantity(), charge.unitPrice(), charge.amount());
         }
-        return find(invoiceId);
+        InvoiceView invoice = find(invoiceId);
+        meterRegistry.counter("meterly.invoice.generated", "tenant_id", tenantId.toString()).increment();
+        kafkaTemplate.send("invoice-generated", tenantId.toString(),
+                new InvoiceGeneratedMessage(invoiceId, tenantId, invoiceId, invoice.totalAmount(), Instant.now()));
+        return invoice;
     }
 
     private long materializeAggregate(UUID tenantId, UUID resourceId, LocalDate periodStart, LocalDate periodEnd) {

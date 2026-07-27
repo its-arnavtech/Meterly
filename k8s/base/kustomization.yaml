@@ -6,6 +6,29 @@ resources:
   - configmap.yaml
   - infrastructure.yaml
   - applications.yaml
+  - observability.yaml
+configMapGenerator:
+  - name: postgres-init
+    files:
+      - 01-keycloak.sql=keycloak-init.sql
+  - name: keycloak-realm
+    files:
+      - meterly-realm.json
+  - name: keycloak-user-profile
+    files:
+      - meterly-user-profile.json
+  - name: prometheus-config
+    files:
+      - prometheus.yml=observability/prometheus.yml
+  - name: grafana-datasource
+    files:
+      - prometheus.yml=observability/grafana/provisioning/datasources/prometheus.yml
+  - name: grafana-dashboard-provider
+    files:
+      - meterly.yml=observability/grafana/provisioning/dashboards/meterly.yml
+  - name: grafana-meterly-dashboard
+    files:
+      - meterly-overview.json=observability/grafana/dashboards/meterly-overview.json
 labels:
   - pairs:
       app.kubernetes.io/part-of: meterly

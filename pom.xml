@@ -26,6 +26,7 @@
     <module>backend/ingestion-service</module>
     <module>backend/metering-service</module>
     <module>backend/billing-service</module>
+    <module>backend/notification-service</module>
   </modules>
 
   <properties>

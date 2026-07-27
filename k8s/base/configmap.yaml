@@ -11,5 +11,12 @@ data:
   SPRING_DATA_REDIS_HOST: redis
   SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
   TENANT_SERVICE_URL: http://tenant-service:8080
+  AUTH_PROVIDER: keycloak
+  KEYCLOAK_BASE_URL: http://keycloak:8080
+  KEYCLOAK_REALM: meterly
+  KEYCLOAK_LOGIN_CLIENT_ID: meterly-web
+  KEYCLOAK_ADMIN_CLIENT_ID: meterly-admin
+  KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/meterly
+  KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/meterly/protocol/openid-connect/certs
   BILLING_SCHEDULER_ENABLED: "true"
   RECONCILIATION_ENABLED: "true"

@@ -1,6 +1,8 @@
 package com.meterly.platform.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.ObjectProvider;
 import com.meterly.platform.auth.JwtAuthenticationFilter;
 import com.meterly.platform.auth.JwtService;
 import com.meterly.platform.tenant.TenantTransactionAspect;
@@ -16,15 +18,23 @@ public class PlatformConfiguration {
     @Bean
     JwtService jwtService(
             ObjectMapper objectMapper,
-            @Value("${meterly.auth.jwt-secret}") String secret,
-            @Value("${meterly.auth.token-seconds:3600}") long tokenSeconds
+            @Value("${meterly.auth.jwt-secret:}") String secret,
+            @Value("${meterly.auth.token-seconds:3600}") long tokenSeconds,
+            @Value("${meterly.auth.issuer-uri:}") String issuerUri,
+            @Value("${meterly.auth.jwk-set-uri:}") String jwkSetUri
     ) {
+        if (!issuerUri.isBlank()) {
+            return JwtService.forIssuer(objectMapper, issuerUri, jwkSetUri);
+        }
         return new JwtService(objectMapper, secret, tokenSeconds);
     }
 
     @Bean
-    JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService) {
-        return new JwtAuthenticationFilter(jwtService);
+    JwtAuthenticationFilter jwtAuthenticationFilter(
+            JwtService jwtService,
+            ObjectProvider<MeterRegistry> meterRegistry
+    ) {
+        return new JwtAuthenticationFilter(jwtService, meterRegistry.getIfAvailable());
     }
 
     @Bean
@@ -35,8 +45,9 @@ public class PlatformConfiguration {
     @Bean
     TenantTransactionAspect tenantTransactionAspect(
             JdbcTemplate jdbcTemplate,
-            TransactionTemplate transactionTemplate
+            TransactionTemplate transactionTemplate,
+            ObjectProvider<MeterRegistry> meterRegistry
     ) {
-        return new TenantTransactionAspect(jdbcTemplate, transactionTemplate);
+        return new TenantTransactionAspect(jdbcTemplate, transactionTemplate, meterRegistry.getIfAvailable());
     }
 }

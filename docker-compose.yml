@@ -14,6 +14,7 @@ services:
       retries: 20
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./k8s/base/keycloak-init.sql:/docker-entrypoint-initdb.d/01-keycloak.sql:ro
 
   redis:
     image: redis:7.4.7-alpine
@@ -44,6 +45,53 @@ services:
       timeout: 5s
       retries: 20
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_OWNER_USER:-meterly_owner}
+      KC_DB_PASSWORD: ${POSTGRES_OWNER_PASSWORD:?Set POSTGRES_OWNER_PASSWORD in .env}
+      KC_BOOTSTRAP_ADMIN_USERNAME: meterly-bootstrap
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?Set KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD in .env}
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:?Set KEYCLOAK_ADMIN_CLIENT_SECRET in .env}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_HOST_PORT:-8090}:8080"
+    volumes:
+      - ./k8s/base/meterly-realm.json:/opt/keycloak/data/import/meterly-realm.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  keycloak-config:
+    image: quay.io/keycloak/keycloak:26.7.0
+    entrypoint: ["/bin/bash", "-ec"]
+    command:
+      - |
+        /opt/keycloak/bin/kcadm.sh config credentials \
+          --server http://keycloak:8080 \
+          --realm meterly \
+          --client meterly-admin \
+          --secret "$${KEYCLOAK_ADMIN_CLIENT_SECRET}"
+        /opt/keycloak/bin/kcadm.sh update users/profile \
+          --realm meterly \
+          --file /config/meterly-user-profile.json
+    environment:
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:?Set KEYCLOAK_ADMIN_CLIENT_SECRET in .env}
+    volumes:
+      - ./k8s/base/meterly-user-profile.json:/config/meterly-user-profile.json:ro
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: "no"
+
   tenant-service:
     build:
       context: .
@@ -57,11 +105,20 @@ services:
       SPRING_FLYWAY_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY in .env}
+      AUTH_PROVIDER: keycloak
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/meterly
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/meterly/protocol/openid-connect/certs
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:?Set KEYCLOAK_ADMIN_CLIENT_SECRET in .env}
     ports:
       - "127.0.0.1:${TENANT_HOST_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      keycloak-config:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/actuator/health | grep -q UP"]
       interval: 10s
@@ -103,6 +160,8 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/meterly
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/meterly/protocol/openid-connect/certs
     ports:
       - "127.0.0.1:${METERING_HOST_PORT:-8082}:8082"
     depends_on:
@@ -113,6 +172,8 @@ services:
       redpanda:
         condition: service_healthy
       tenant-service:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://localhost:8082/actuator/health | grep -q UP"]
@@ -129,6 +190,9 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_APP_USER:-meterly_app}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/meterly
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/meterly/protocol/openid-connect/certs
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
     ports:
       - "127.0.0.1:${BILLING_HOST_PORT:-8083}:8083"
     depends_on:
@@ -136,11 +200,76 @@ services:
         condition: service_healthy
       tenant-service:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://localhost:8083/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
       retries: 20
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: backend/notification-service/Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-meterly}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_APP_USER:-meterly_app}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+    ports:
+      - "127.0.0.1:${NOTIFICATION_HOST_PORT:-8084}:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      tenant-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8084/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  prometheus:
+    image: prom/prometheus:v3.11.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_HOST_PORT:-9091}:9090"
+    volumes:
+      - ./k8s/base/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      tenant-service:
+        condition: service_healthy
+      ingestion-service:
+        condition: service_healthy
+      metering-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:12.4.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    ports:
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3000}:3000"
+    volumes:
+      - ./k8s/base/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./k8s/base/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
 
   web:
     build:
@@ -161,3 +290,5 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  prometheus-data:
+  grafana-data:
