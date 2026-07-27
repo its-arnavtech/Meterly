@@ -6,9 +6,22 @@
 .DS_Store
 
 backend/**/target/
+/target/
 frontend/node_modules/
 frontend/dist/
 frontend/.angular/
 
-.env
+/.env
+/.env.*
 !/.env.example
+
+# Never commit private key material or local secret stores.
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+secrets*.yml
+secrets*.yaml

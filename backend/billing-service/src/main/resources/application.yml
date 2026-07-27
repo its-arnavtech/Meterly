@@ -8,10 +8,10 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/meterly}
     username: ${SPRING_DATASOURCE_USERNAME:meterly_app}
-    password: ${SPRING_DATASOURCE_PASSWORD:meterly-app-local}
+    password: ${SPRING_DATASOURCE_PASSWORD}
 meterly:
   auth:
-    jwt-secret: ${JWT_SECRET:meterly-local-development-secret-32}
+    jwt-secret: ${JWT_SECRET}
     token-seconds: 3600
 management:
   endpoints:

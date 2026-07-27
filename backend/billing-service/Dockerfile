@@ -11,8 +11,12 @@ COPY backend/platform-common/src backend/platform-common/src
 COPY backend/billing-service/src backend/billing-service/src
 RUN mvn -B -ntp -pl backend/billing-service -am -DskipTests package
 FROM eclipse-temurin:21-jre-alpine
-RUN apk add --no-cache curl
+RUN apk upgrade --no-cache \
+    && apk add --no-cache curl \
+    && apk del gnupg sqlite-libs \
+    && adduser -D -H -u 10001 meterly
 WORKDIR /app
 COPY --from=build /workspace/backend/billing-service/target/billing-service-*.jar app.jar
+USER meterly
 EXPOSE 8083
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

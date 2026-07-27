@@ -1,15 +1,26 @@
 # Meterly
 
-Meterly is a multi-tenant SaaS usage-metering and tiered-billing platform. Phase 0 proves four risky properties end to end: idempotent event processing, PostgreSQL row-level tenant isolation, live dashboard delivery, and exact invoice arithmetic.
+Meterly is a multi-tenant SaaS usage-metering and tiered-billing platform. The implemented Phase 2 system covers onboarding, tenant-isolated ingestion/metering/billing, live dashboard delivery, exact invoice arithmetic, rate limiting, reconciliation, and defensive RLS tests.
 
 ## Repository layout
 
 - `backend/ingestion-service`: usage-event HTTP API and Kafka producer
+- `backend/tenant-service`: tenant/user/plan/resource onboarding and API-key issuance
 - `backend/metering-service`: idempotent Kafka consumption, Redis counters, and tenant-scoped STOMP updates
 - `backend/billing-service`: tiered pricing, billing runs, and tenant-isolated invoices
-- `frontend`: Angular 18 SPA
+- `frontend`: Angular 21 SPA
 - `Docs`: read-only POC/PDD source documents and generated Markdown extracts
-- `docker-compose.yml`: PostgreSQL 16, Redis, Redpanda, and both backend services
+- `docker-compose.yml`: PostgreSQL 16, Redis, Redpanda, four backend services, and the web app
+
+## Local secrets
+
+Compose intentionally has no credential or signing-key fallbacks. Generate an ignored `.env` before the first start:
+
+```powershell
+.\scripts\initialize-env.ps1
+```
+
+The script creates cryptographically random local-only values without printing them. Do not copy `.env` into an image, commit it, or reuse these values outside local development. Use `-Force` only when intentionally rotating the local stack credentials.
 
 ## Local verification
 
@@ -20,4 +31,4 @@ docker compose config --quiet
 docker compose up --build --wait
 ```
 
-GitHub Actions repeats the backend, frontend, Compose, dependency-review, and CodeQL gates for every feature PR to `main`.
+GitHub Actions repeats the secret scan, backend, frontend, Compose, Testcontainers, live-smoke, production dependency-review, and CodeQL gates for every feature PR to `main`.

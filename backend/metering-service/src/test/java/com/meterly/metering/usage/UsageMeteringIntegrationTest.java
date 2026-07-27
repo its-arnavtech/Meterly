@@ -23,7 +23,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest(properties = "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration")
+@SpringBootTest(properties = {
+        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration,"
+                + "org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration",
+        "meterly.auth.jwt-secret=test-only-jwt-secret-at-least-32-bytes"
+})
 @Testcontainers
 class UsageMeteringIntegrationTest {
     private static final UUID TENANT = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -35,10 +39,12 @@ class UsageMeteringIntegrationTest {
     static void properties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", () -> "meterly_app");
-        registry.add("spring.datasource.password", () -> "meterly-app-local");
+        registry.add("spring.datasource.password", () -> "test-only-app-password-32-bytes-minimum");
         registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
         registry.add("spring.flyway.user", POSTGRES::getUsername);
         registry.add("spring.flyway.password", POSTGRES::getPassword);
+        registry.add("spring.flyway.placeholders.meterlyAppPassword",
+                () -> "test-only-app-password-32-bytes-minimum");
     }
 
     @MockitoBean StringRedisTemplate redisTemplate;

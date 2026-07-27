@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = "meterly.auth.jwt-secret=test-only-jwt-secret-at-least-32-bytes")
 @AutoConfigureMockMvc
 @Testcontainers
 class BillingIntegrationTest {
@@ -38,10 +38,12 @@ class BillingIntegrationTest {
     static void properties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", () -> "meterly_app");
-        registry.add("spring.datasource.password", () -> "meterly-app-local");
+        registry.add("spring.datasource.password", () -> "test-only-app-password-32-bytes-minimum");
         registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
         registry.add("spring.flyway.user", POSTGRES::getUsername);
         registry.add("spring.flyway.password", POSTGRES::getPassword);
+        registry.add("spring.flyway.placeholders.meterlyAppPassword",
+                () -> "test-only-app-password-32-bytes-minimum");
     }
 
     @Autowired BillingService billingService;

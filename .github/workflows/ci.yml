@@ -14,6 +14,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secret-scan:
+    name: Secrets / Gitleaks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   backend:
     name: Backend / Java 21
     runs-on: ubuntu-latest
@@ -78,6 +92,16 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - name: Generate ephemeral Compose secrets
+        shell: bash
+        run: |
+          umask 077
+          {
+            echo "POSTGRES_OWNER_PASSWORD=$(openssl rand -hex 32)"
+            echo "POSTGRES_APP_PASSWORD=$(openssl rand -hex 32)"
+            echo "JWT_SECRET=$(openssl rand -hex 48)"
+            echo "INTERNAL_SERVICE_KEY=$(openssl rand -hex 32)"
+          } > .env
       - name: Validate Compose model
         run: docker compose config --quiet
 
@@ -85,7 +109,7 @@ jobs:
     name: Full stack / three-tenant live smoke
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [backend, integration-testcontainers, frontend, compose]
+    needs: [secret-scan, backend, integration-testcontainers, frontend, compose]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -93,6 +117,16 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      - name: Generate ephemeral Compose secrets
+        shell: bash
+        run: |
+          umask 077
+          {
+            echo "POSTGRES_OWNER_PASSWORD=$(openssl rand -hex 32)"
+            echo "POSTGRES_APP_PASSWORD=$(openssl rand -hex 32)"
+            echo "JWT_SECRET=$(openssl rand -hex 48)"
+            echo "INTERNAL_SERVICE_KEY=$(openssl rand -hex 32)"
+          } > .env
       - name: Install smoke client dependency
         working-directory: frontend
         run: npm ci --omit=dev

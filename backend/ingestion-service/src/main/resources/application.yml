@@ -20,7 +20,7 @@ meterly:
   tenant-service:
     base-url: ${TENANT_SERVICE_URL:http://localhost:8080}
   internal:
-    service-key: ${INTERNAL_SERVICE_KEY:meterly-internal-local-secret}
+    service-key: ${INTERNAL_SERVICE_KEY}
 management:
   endpoints:
     web:

@@ -40,7 +40,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(properties = {
         "meterly.rate-limit.capacity=3",
-        "meterly.rate-limit.refill-per-second=1"
+        "meterly.rate-limit.refill-per-second=1",
+        "meterly.internal.service-key=test-only-internal-service-key"
 })
 @AutoConfigureMockMvc
 class TenantRateLimitIntegrationTest {

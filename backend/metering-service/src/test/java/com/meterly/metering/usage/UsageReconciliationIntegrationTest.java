@@ -28,7 +28,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(properties = "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration")
+@SpringBootTest(properties = {
+        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration,"
+                + "org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration",
+        "meterly.auth.jwt-secret=test-only-jwt-secret-at-least-32-bytes"
+})
 @Testcontainers
 @ExtendWith(OutputCaptureExtension.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -51,10 +55,12 @@ class UsageReconciliationIntegrationTest {
     static void properties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", () -> "meterly_app");
-        registry.add("spring.datasource.password", () -> "meterly-app-local");
+        registry.add("spring.datasource.password", () -> "test-only-app-password-32-bytes-minimum");
         registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
         registry.add("spring.flyway.user", POSTGRES::getUsername);
         registry.add("spring.flyway.password", POSTGRES::getPassword);
+        registry.add("spring.flyway.placeholders.meterlyAppPassword",
+                () -> "test-only-app-password-32-bytes-minimum");
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
     }

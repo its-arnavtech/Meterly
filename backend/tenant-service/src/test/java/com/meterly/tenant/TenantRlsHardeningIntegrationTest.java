@@ -47,14 +47,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "spring.datasource.hikari.maximum-pool-size=1"
+        properties = {
+                "spring.datasource.hikari.maximum-pool-size=1",
+                "meterly.auth.jwt-secret=test-only-jwt-secret-at-least-32-bytes",
+                "meterly.internal.service-key=test-only-internal-service-key"
+        }
 )
 @Import(TenantRlsHardeningIntegrationTest.RlsProbeConfiguration.class)
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class TenantRlsHardeningIntegrationTest {
     private static final String DEVELOPER_PLAN = "22222222-2222-2222-2222-222222222222";
-    private static final String JWT_SECRET = "meterly-local-development-secret-32";
+    private static final String JWT_SECRET = "test-only-jwt-secret-at-least-32-bytes";
+    private static final String INTERNAL_SERVICE_KEY = "test-only-internal-service-key";
     private static final AtomicInteger PROBE_QUERIES = new AtomicInteger();
 
     @Container
@@ -68,10 +73,12 @@ class TenantRlsHardeningIntegrationTest {
     static void databaseProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", () -> "meterly_app");
-        registry.add("spring.datasource.password", () -> "meterly-app-local");
+        registry.add("spring.datasource.password", () -> "test-only-app-password-32-bytes-minimum");
         registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
         registry.add("spring.flyway.user", POSTGRES::getUsername);
         registry.add("spring.flyway.password", POSTGRES::getPassword);
+        registry.add("spring.flyway.placeholders.meterlyAppPassword",
+                () -> "test-only-app-password-32-bytes-minimum");
     }
 
     @LocalServerPort int port;
@@ -163,8 +170,8 @@ class TenantRlsHardeningIntegrationTest {
         Onboarding tenantA = onboard("Internal Call A", "internal-a@meterly.test");
         Onboarding tenantB = onboard("Internal Call B", "internal-b@meterly.test");
 
-        JsonNode resultA = introspect(tenantA.apiKey(), "meterly-internal-local-secret", 200);
-        JsonNode resultB = introspect(tenantB.apiKey(), "meterly-internal-local-secret", 200);
+        JsonNode resultA = introspect(tenantA.apiKey(), INTERNAL_SERVICE_KEY, 200);
+        JsonNode resultB = introspect(tenantB.apiKey(), INTERNAL_SERVICE_KEY, 200);
         assertThat(resultA.get("tenantId").asText()).isEqualTo(tenantA.tenantId().toString());
         assertThat(resultB.get("tenantId").asText()).isEqualTo(tenantB.tenantId().toString());
         assertThat(resultA.get("resourceIds").get(0).asText()).isEqualTo(tenantA.resourceId().toString());

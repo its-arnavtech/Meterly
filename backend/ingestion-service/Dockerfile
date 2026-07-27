@@ -12,12 +12,12 @@ COPY backend/platform-common/src backend/platform-common/src
 COPY backend/ingestion-service/src backend/ingestion-service/src
 RUN mvn -B -ntp -pl backend/ingestion-service -am package -DskipTests
 
-FROM eclipse-temurin:21-jre
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --uid 10001 meterly
-USER meterly
+FROM eclipse-temurin:21-jre-alpine
+RUN apk upgrade --no-cache \
+    && apk add --no-cache curl \
+    && apk del gnupg sqlite-libs \
+    && adduser -D -H -u 10001 meterly
 COPY --from=build /workspace/backend/ingestion-service/target/ingestion-service-*.jar /app.jar
+USER meterly
 EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "/app.jar"]

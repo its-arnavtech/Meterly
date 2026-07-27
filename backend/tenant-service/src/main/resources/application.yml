@@ -8,19 +8,21 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/meterly}
     username: ${SPRING_DATASOURCE_USERNAME:meterly_app}
-    password: ${SPRING_DATASOURCE_PASSWORD:meterly-app-local}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     hikari:
       maximum-pool-size: 10
   flyway:
     user: ${SPRING_FLYWAY_USER:meterly_owner}
-    password: ${SPRING_FLYWAY_PASSWORD:meterly-owner-local}
+    password: ${SPRING_FLYWAY_PASSWORD}
     locations: classpath:db/migration
+    placeholders:
+      meterlyAppPassword: ${SPRING_FLYWAY_APP_PASSWORD}
 meterly:
   auth:
-    jwt-secret: ${JWT_SECRET:meterly-local-development-secret-32}
+    jwt-secret: ${JWT_SECRET}
     token-seconds: 3600
   internal:
-    service-key: ${INTERNAL_SERVICE_KEY:meterly-internal-local-secret}
+    service-key: ${INTERNAL_SERVICE_KEY}
 management:
   endpoints:
     web:

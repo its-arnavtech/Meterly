@@ -22,12 +22,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "meterly.auth.jwt-secret=test-only-jwt-secret-at-least-32-bytes",
+        "meterly.internal.service-key=test-only-internal-service-key"
+})
 @AutoConfigureMockMvc
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class TenantOnboardingIntegrationTest {
     private static final String GROWTH_PLAN = "22222222-2222-2222-2222-222222222223";
+    private static final String INTERNAL_SERVICE_KEY = "test-only-internal-service-key";
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16.10-alpine")
@@ -40,10 +44,12 @@ class TenantOnboardingIntegrationTest {
     static void databaseProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", () -> "meterly_app");
-        registry.add("spring.datasource.password", () -> "meterly-app-local");
+        registry.add("spring.datasource.password", () -> "test-only-app-password-32-bytes-minimum");
         registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
         registry.add("spring.flyway.user", POSTGRES::getUsername);
         registry.add("spring.flyway.password", POSTGRES::getPassword);
+        registry.add("spring.flyway.placeholders.meterlyAppPassword",
+                () -> "test-only-app-password-32-bytes-minimum");
     }
 
     @Autowired
@@ -83,7 +89,7 @@ class TenantOnboardingIntegrationTest {
                 .andExpect(jsonPath("$.tiers.length()").value(2));
 
         mockMvc.perform(post("/internal/v1/api-keys/introspect")
-                        .header("X-Internal-Service-Key", "meterly-internal-local-secret")
+                        .header("X-Internal-Service-Key", INTERNAL_SERVICE_KEY)
                         .contentType("application/json")
                         .content("{\"apiKey\":\"" + apiKey + "\"}"))
                 .andExpect(status().isOk())

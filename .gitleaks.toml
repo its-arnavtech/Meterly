@@ -1,0 +1,17 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated dependencies, build output, and local tool downloads"
+paths = [
+  '''(^|/)\.env$''',
+  '''(^|/)\.tools/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)target/''',
+  '''(^|/)dist/''',
+  '''(^|/)\.angular/'''
+]
+regexes = [
+  '''replace-with-at-least-32-characters''',
+  '''Prometheus/Grafana'''
+]

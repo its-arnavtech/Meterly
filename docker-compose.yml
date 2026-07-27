@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-meterly}
       POSTGRES_USER: ${POSTGRES_OWNER_USER:-meterly_owner}
-      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-meterly-owner-local}
+      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:?Set POSTGRES_OWNER_PASSWORD in .env}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -51,13 +51,14 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-meterly}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_APP_USER:-meterly_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:-meterly-app-local}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}
       SPRING_FLYWAY_USER: ${POSTGRES_OWNER_USER:-meterly_owner}
-      SPRING_FLYWAY_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-meterly-owner-local}
-      JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-meterly-internal-local-secret}
+      SPRING_FLYWAY_PASSWORD: ${POSTGRES_OWNER_PASSWORD:?Set POSTGRES_OWNER_PASSWORD in .env}
+      SPRING_FLYWAY_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY in .env}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:${TENANT_HOST_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,9 +76,9 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       SPRING_DATA_REDIS_HOST: redis
       TENANT_SERVICE_URL: http://tenant-service:8080
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-meterly-internal-local-secret}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Set INTERNAL_SERVICE_KEY in .env}
     ports:
-      - "${INGESTION_HOST_PORT:-8181}:8081"
+      - "127.0.0.1:${INGESTION_HOST_PORT:-8181}:8081"
     depends_on:
       redis:
         condition: service_healthy
@@ -98,12 +99,12 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-meterly}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_APP_USER:-meterly_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:-meterly-app-local}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
-      JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
     ports:
-      - "8082:8082"
+      - "127.0.0.1:${METERING_HOST_PORT:-8082}:8082"
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,10 +127,10 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-meterly}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_APP_USER:-meterly_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:-meterly-app-local}
-      JWT_SECRET: ${JWT_SECRET:-meterly-local-development-secret-32}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
     ports:
-      - "8083:8083"
+      - "127.0.0.1:${BILLING_HOST_PORT:-8083}:8083"
     depends_on:
       postgres:
         condition: service_healthy
@@ -146,7 +147,7 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     ports:
-      - "4200:4200"
+      - "127.0.0.1:${WEB_HOST_PORT:-4200}:4200"
     depends_on:
       tenant-service:
         condition: service_healthy

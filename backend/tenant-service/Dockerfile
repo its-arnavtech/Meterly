@@ -13,11 +13,11 @@ COPY backend/database-schema/src backend/database-schema/src
 COPY backend/tenant-service/src backend/tenant-service/src
 RUN mvn -B -ntp -pl backend/tenant-service -am package -DskipTests
 
-FROM eclipse-temurin:21-jre
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --uid 10001 meterly
+FROM eclipse-temurin:21-jre-alpine
+RUN apk upgrade --no-cache \
+    && apk add --no-cache curl \
+    && apk del gnupg sqlite-libs \
+    && adduser -D -H -u 10001 meterly
 COPY --from=build /workspace/backend/tenant-service/target/tenant-service-*.jar /app.jar
 USER meterly
 EXPOSE 8080
