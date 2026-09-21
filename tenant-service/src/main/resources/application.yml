@@ -1,7 +1,8 @@
 server:
   port: ${SERVER_PORT:8081}
   shutdown: graceful
-  forward-headers-strategy: framework
+  # The edge must sanitize forwarded headers. Default to the actual peer address for auth throttling.
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
 
 spring:
   application:
@@ -45,6 +46,11 @@ springdoc:
     enabled: ${SWAGGER_UI_ENABLED:false}
 
 meterly:
+  auth:
+    private-key-path: ${JWT_PRIVATE_KEY_PATH:}
+    public-key-path: ${JWT_PUBLIC_KEY_PATH:}
+    key-id: ${JWT_KEY_ID:}
+    refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:false}
   security:
     jwt:
       jwks-uri: ${JWT_JWKS_URI:http://localhost:8081/.well-known/jwks.json}

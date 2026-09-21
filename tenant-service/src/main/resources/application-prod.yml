@@ -3,3 +3,13 @@ logging:
   structured:
     format:
       console: ecs
+spring:
+  datasource:
+    password: ${DB_PASSWORD}
+meterly:
+  auth:
+    private-key-path: ${JWT_PRIVATE_KEY_PATH}
+    public-key-path: ${JWT_PUBLIC_KEY_PATH}
+    refresh-cookie-secure: true
+  security:
+    internal-token: ${INTERNAL_TOKEN}
