@@ -1,0 +1,5 @@
+# Container / cluster profile: structured JSON logs (ECS) carrying request_id and tenant_id from the MDC.
+logging:
+  structured:
+    format:
+      console: ecs

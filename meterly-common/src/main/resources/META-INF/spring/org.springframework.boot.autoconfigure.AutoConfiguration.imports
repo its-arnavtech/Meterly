@@ -1,0 +1,4 @@
+com.meterly.common.autoconfigure.MeterlyCoreAutoConfiguration
+com.meterly.common.autoconfigure.MeterlyJdbcAutoConfiguration
+com.meterly.common.autoconfigure.MeterlyWebAutoConfiguration
+com.meterly.common.autoconfigure.MeterlySecurityAutoConfiguration

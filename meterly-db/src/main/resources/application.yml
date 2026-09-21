@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: meterly-migrator
+  main:
+    banner-mode: off
+  # The migrator needs no pooled DataSource of its own; Flyway opens its own connection.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  flyway:
+    enabled: true
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/meterly}
+    user: ${DB_OWNER_USERNAME:meterly_owner}
+    password: ${DB_OWNER_PASSWORD:meterly_owner}
+    locations: ${MIGRATION_LOCATIONS:classpath:db/migration}
+    placeholders:
+      appRole: ${DB_APP_ROLE:meterly_app}
+    connect-retries: 30
+    connect-retries-interval: 2s
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:ecs}

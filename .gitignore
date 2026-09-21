@@ -1,0 +1,30 @@
+# Build output
+target/
+*.class
+*.log
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Node / Angular
+node_modules/
+meterly-web/dist/
+meterly-web/.angular/
+meterly-web/coverage/
+
+# Local env / secrets
+.env
+*.pem
+!deploy/**/*.example.pem
+
+# Claude Code worktrees / local state
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
