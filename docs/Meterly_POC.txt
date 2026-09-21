@@ -1,0 +1,145 @@
+Meterly
+Multi-Tenant SaaS Billing & Usage-Metering Platform
+Proof of Concept (POC)
+Author: Arnav Kumar
+Version 1.0 — July 2026
+Status: Master reference document — updated throughout the project lifecycle
+
+Table of Contents
+TOC \h \o "1-2"
+
+
+1. Overview
+Meterly is a multi-tenant SaaS billing and usage-metering platform. It exists to demonstrate, end-to-end, the categories of problems that real developer-tools and infrastructure companies solve internally: metered API consumption, tiered and usage-based billing, strict tenant data isolation, and real-time usage visibility for customers.
+The goal is not to reproduce Stripe. It is to build a smaller system that still forces correct solutions to the hard parts — accurate metering under concurrent and retried writes, tenant isolation enforced below the application layer, and invoice math that is provably correct — with a working Angular front end and Spring Boot back end.
+This POC exists to de-risk the architecture in the accompanying Project Design Document (PDD) before the full build begins. It answers one question: can the core hard problems actually be solved with the chosen stack, at small scale, before time is invested in the full feature set?
+2. Objective / Hypotheses to Validate
+The POC must demonstrate the following, each of which is a genuine risk in the PDD's design:
+A Spring Boot service can ingest usage events and count them per tenant, per billing period, without double-counting — even when a client retries the same request (idempotency keys) or Kafka redelivers a message (consumer-side idempotent upsert).
+PostgreSQL Row-Level Security (RLS) enforces tenant isolation at the database layer, so a bug in an application-layer WHERE clause cannot leak another tenant's rows.
+An Angular dashboard can reflect a usage event in the UI within roughly two seconds of that event being published, using a WebSocket/STOMP channel rather than polling.
+A billing job can compute a correct tiered, usage-based invoice for a sample tenant, verified against an independent hand calculation to the cent.
+If any hypothesis fails, the relevant section of the PDD is revisited before the full build proceeds — this document and the PDD are treated as living, and the PDD is the one that gets corrected.
+3. Scope
+In scope for the POC
+Single tenant, single metered resource (“API calls”)
+One pricing plan with two tiers (included units + one marginal-price tier above that)
+Usage ingestion endpoint accepting an idempotency key
+Kafka (Redpanda locally) topic carrying usage events, consumed by a metering service
+Redis-backed per-tenant, per-period usage counters for fast reads
+Angular dashboard showing a live usage count updating over WebSocket
+One billing run producing one invoice with correct tiered pricing
+Angular invoice view rendering the generated invoice
+Explicitly out of scope for the POC
+Multi-tenant onboarding flows, multi-currency, tax computation
+Payment collection, dunning, or failed-payment retries
+Plan upgrade/downgrade mid-period proration
+Admin analytics, notification emails, audit logging UI
+Kubernetes deployment, Keycloak, and full observability stack (deferred to later phases — see PDD Section 13)
+4. Core Feature Set
+Feature
+Purpose
+Tenant + user bootstrap
+Seed one tenant and one admin user directly (no onboarding UI needed for POC)
+API key issuance
+Represents the credential a tenant's client would use to call a metered API
+Usage ingestion endpoint
+POST /v1/usage-events, accepts idempotency_key + quantity
+Kafka/Redpanda topic
+usage-events, partitioned by tenant_id
+Metering consumer
+Idempotent upsert into Postgres + Redis counter increment
+Live dashboard
+Angular view subscribed over STOMP to per-tenant usage updates
+Billing job
+Reads the closed period's aggregate, applies tiered pricing, writes an Invoice
+Invoice view
+Angular view rendering line items and total for the generated invoice
+5. Technology Stack
+Layer
+Technology
+Why this choice
+Frontend
+Angular 18, RxJS, Angular Material
+Modern Angular signals + RxJS for real-time state; Material for fast, consistent UI without hand-rolled CSS
+Backend
+Java 21, Spring Boot 3
+Industry-standard for enterprise backends; virtual threads available if needed later
+Messaging
+Kafka-API (Redpanda locally)
+Kafka semantics and partitioning without the operational overhead of a full Kafka/ZooKeeper cluster on a laptop
+Cache / counters
+Redis
+Sub-millisecond counter increments for the live dashboard; explicitly not the system of record
+Database
+PostgreSQL 16 (Row-Level Security)
+RLS gives tenant isolation enforced by the database itself, not just application code
+Auth
+Spring Security + JWT
+Self-issued JWTs are sufficient to prove the tenant-context propagation pattern; Keycloak is a stretch goal, not a POC blocker
+Local infra
+Docker Compose
+One command spins up Postgres, Redis, Redpanda, and both services
+CI
+GitHub Actions
+Build + unit test on every push
+6. Architecture Sketch
+At POC scope there are two Spring Boot services plus the Angular SPA:
+ingestion-service — exposes the usage-events endpoint, validates the idempotency key, publishes to Kafka.
+metering-billing-service — consumes usage-events, performs idempotent upsert + Redis increment, exposes the WebSocket topic for live counts, and runs the billing job that produces invoices.
+meterly-web — the Angular SPA (login, dashboard, invoice view).
+Data flow: a simulated client calls the ingestion endpoint → event is published to the usage-events Kafka topic, partitioned by tenant_id to preserve per-tenant ordering → the metering consumer upserts the event into Postgres (idempotency_key has a unique constraint, so redelivery is a no-op) and increments the Redis counter for the current period → the counter increment is pushed to subscribed dashboard clients over STOMP → at period close, the billing job reads the Postgres aggregate (the source of truth, not Redis) and writes an Invoice with its line items → the Angular invoice view fetches and renders it over REST.
+The two-service split (rather than one monolith) exists specifically to prove that ingestion and metering/billing can scale and fail independently — the PDD's full design splits these further into tenant-service, metering-service, and billing-service (Section 2 of the PDD).
+7. Success / Exit Criteria
+Hypothesis
+Pass criteria
+Idempotent metering
+1,000 simulated events with 5% intentional duplicate idempotency keys and 5% intentional Kafka redelivery result in an aggregate count matching the number of unique keys, exactly.
+RLS isolation
+A query executed with a different tenant's session variable set returns zero rows for the seeded tenant's data, even when the WHERE clause is deliberately omitted from the test query.
+Live dashboard latency
+In 20 manual trials, the dashboard counter reflects a published event within 2 seconds at least 18 times.
+Correct tiered invoice
+The generated invoice total matches an independently hand-calculated total for the same usage figures, to the cent.
+8. Key Risks & Mitigations
+Risk
+Mitigation
+RLS + connection-pooled session variables interacting badly (session vars can leak across pooled connections)
+Set the tenant session variable per-transaction via a Spring @Around aspect at the start of every request, and add a test that asserts it is reset/reassigned even under pool reuse.
+Kafka/Redpanda operational overhead derails POC timeline
+Use Redpanda's single-binary local mode; document it as Kafka-API compatible rather than standing up a full Kafka cluster.
+Redis counter and Postgres ledger drifting apart
+Postgres is authoritative by design; Redis is explicitly a read cache. The POC includes one reconciliation check comparing the two after the test run.
+Floating-point rounding errors in invoice math
+All monetary values use BigDecimal end-to-end, with a documented HALF_EVEN rounding rule at the cent, never double/float.
+9. Timeline
+Phase
+Focus
+Target duration
+POC – Week 1
+Docker Compose stack, tenant/user seed, ingestion endpoint, Kafka publish
+1 week
+POC – Week 2
+Metering consumer with idempotent upsert, Redis counters, RLS policies
+1 week
+POC – Week 3
+Angular dashboard with live WebSocket updates
+1 week
+POC – Week 4
+Billing job, invoice generation, Angular invoice view, exit-criteria validation
+1 week
+10. Appendix: Glossary
+Term
+Definition
+Tenant
+A customer organization using Meterly; the unit of data isolation.
+Metered resource
+The billable unit a tenant's usage is tracked against (e.g., API calls).
+Usage event
+A single record of consumption of a metered resource, carrying an idempotency key.
+Idempotency key
+A client-supplied unique token that lets the ingestion endpoint safely ignore duplicate submissions of the same event.
+Row-Level Security (RLS)
+A PostgreSQL feature that filters query results by a policy evaluated per-row, enforced regardless of the application's own query logic.
+Proration
+Adjusting a charge for a partial billing period (explicitly out of scope for the POC).

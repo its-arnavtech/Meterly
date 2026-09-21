@@ -1,0 +1,187 @@
+name: meterly
+
+x-app-environment: &app-environment
+  SPRING_PROFILES_ACTIVE: dev
+  DB_URL: jdbc:postgresql://postgres:5432/meterly
+  DB_USERNAME: meterly_app
+  DB_PASSWORD: ${DB_APP_PASSWORD:?Run scripts/bootstrap.ps1 first}
+  KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  JWT_JWKS_URI: http://tenant-service:8081/.well-known/jwks.json
+  INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Run scripts/bootstrap.ps1 first}
+  TENANT_SERVICE_URL: http://tenant-service:8081
+  CORS_ALLOWED_ORIGINS: http://localhost:${WEB_PORT:-8080},http://localhost:4200
+
+x-app: &app
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  mem_limit: 512m
+  cpus: 1.0
+  environment: *app-environment
+  depends_on:
+    migrator: {condition: service_completed_successfully}
+    redis: {condition: service_healthy}
+    topics: {condition: service_completed_successfully}
+  healthcheck:
+    test: [CMD-SHELL, 'wget -q -O /dev/null http://localhost:$${SERVER_PORT}/actuator/health/readiness']
+    interval: 10s
+    timeout: 5s
+    retries: 18
+    start_period: 40s
+
+services:
+  postgres:
+    image: postgres:16.14-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/bootstrap.ps1 first}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Run scripts/bootstrap.ps1 first}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?Run scripts/bootstrap.ps1 first}
+    ports: ['127.0.0.1:${POSTGRES_PORT:-55432}:5432']
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deploy/postgres/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d meterly']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+
+  redis:
+    image: redis:7.4.7-alpine
+    restart: unless-stopped
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 192mb, --maxmemory-policy, noeviction]
+    ports: ['127.0.0.1:${REDIS_PORT:-16379}:6379']
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 256m
+
+  redpanda:
+    image: redpandadata/redpanda:v25.3.6
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=768M
+      - --reserve-memory=0M
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:${KAFKA_PORT:-19092}
+    ports: ['127.0.0.1:${KAFKA_PORT:-19092}:19092']
+    volumes: [redpanda-data:/var/lib/redpanda/data]
+    healthcheck:
+      test: [CMD, rpk, cluster, info, -X, brokers=localhost:9092]
+      interval: 5s
+      timeout: 5s
+      retries: 25
+    mem_limit: 1g
+
+  topics:
+    image: redpandadata/redpanda:v25.3.6
+    entrypoint: [/bin/bash, /bootstrap/create-topics.sh]
+    volumes: [./deploy/redpanda:/bootstrap:ro]
+    depends_on:
+      redpanda: {condition: service_healthy}
+    restart: 'no'
+
+  migrator:
+    build: {context: ., target: migrator}
+    image: meterly/migrator:local
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/meterly
+      DB_OWNER_USERNAME: meterly_owner
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Run scripts/bootstrap.ps1 first}
+      DB_APP_ROLE: meterly_app
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: 'no'
+    mem_limit: 384m
+
+  tenant-service:
+    <<: *app
+    build: {context: ., target: tenant-service}
+    image: meterly/tenant-service:local
+    environment:
+      <<: *app-environment
+      SERVER_PORT: 8081
+      JWT_PRIVATE_KEY_PATH: /run/keys/jwt-private.pem
+      JWT_PUBLIC_KEY_PATH: /run/keys/jwt-public.pem
+      JWT_KEY_ID: local-rsa-1
+    volumes: [./secrets:/run/keys:ro]
+
+  ingestion-service:
+    <<: *app
+    build: {context: ., target: ingestion-service}
+    image: meterly/ingestion-service:local
+    environment:
+      <<: *app-environment
+      SERVER_PORT: 8082
+
+  metering-service:
+    <<: *app
+    build: {context: ., target: metering-service}
+    image: meterly/metering-service:local
+    environment:
+      <<: *app-environment
+      SERVER_PORT: 8083
+
+  billing-service:
+    <<: *app
+    build: {context: ., target: billing-service}
+    image: meterly/billing-service:local
+    environment:
+      <<: *app-environment
+      SERVER_PORT: 8084
+
+  notification-service:
+    <<: *app
+    build: {context: ., target: notification-service}
+    image: meterly/notification-service:local
+    environment:
+      <<: *app-environment
+      SERVER_PORT: 8085
+      EMAIL_PROVIDER: smtp
+      SMTP_HOST: mailpit
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    ports: ['127.0.0.1:8025:8025']
+    mem_limit: 128m
+
+  web:
+    build: {context: ., dockerfile: deploy/web.Dockerfile}
+    image: meterly/web:local
+    restart: unless-stopped
+    ports: ['127.0.0.1:${WEB_PORT:-8080}:8080']
+    depends_on:
+      tenant-service: {condition: service_healthy}
+      ingestion-service: {condition: service_healthy}
+      metering-service: {condition: service_healthy}
+      billing-service: {condition: service_healthy}
+      notification-service: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://localhost:8080/health]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 128m
+
+volumes:
+  postgres-data:
+  redis-data:
+  redpanda-data:

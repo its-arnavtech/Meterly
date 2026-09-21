@@ -1,0 +1,13 @@
+.git
+.claude
+**/node_modules
+**/target
+**/.angular
+**/dist
+.env
+.env.*
+secrets
+*.pem
+*.log
+*.docx
+validation-output

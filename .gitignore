@@ -19,6 +19,10 @@ meterly-web/coverage/
 
 # Local env / secrets
 .env
+.env.*
+!.env.example
+secrets/
+validation-output/
 *.pem
 !deploy/**/*.example.pem
 

@@ -37,8 +37,8 @@
   safe local defaults, no secrets committed except obvious dev placeholders.
 
 ## Git
-- Work only on your feature branch. Commit in logical steps with clear messages. End commit messages with:
-  `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`
+- Work only on your feature branch. Commit in logical steps with clear messages. Attribute coauthors only
+  when they actually contributed; do not automatically attribute new work to a previous agent.
 - Only touch files inside your module unless your brief says otherwise. Shared files (`meterly-common`, root `pom.xml`,
   `docs/api-contract.md`) are owned by the integrator: if you genuinely need a change there, make the smallest
   additive change and call it out explicitly in your final report.
