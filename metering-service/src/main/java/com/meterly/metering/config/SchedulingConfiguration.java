@@ -32,8 +32,8 @@ public class SchedulingConfiguration implements SchedulingConfigurer {
         this.meteringJobScheduler = new ThreadPoolTaskScheduler();
         this.meteringJobScheduler.setPoolSize(2);
         this.meteringJobScheduler.setThreadNamePrefix("metering-job-");
-        this.meteringJobScheduler.setWaitForTasksToCompleteOnShutdown(true);
-        this.meteringJobScheduler.setAwaitTerminationSeconds(20);
+        // Jobs are restartable and idempotent, so shutdown interrupts them instead of waiting.
+        this.meteringJobScheduler.setWaitForTasksToCompleteOnShutdown(false);
     }
 
     @Bean

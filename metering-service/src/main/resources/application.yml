@@ -73,3 +73,24 @@ meterly:
     internal-token: ${INTERNAL_TOKEN:dev-internal-token-change-me}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8080}
+  metering:
+    consumer:
+      group-id: ${METERING_CONSUMER_GROUP:metering-service}
+      concurrency: ${METERING_CONSUMER_CONCURRENCY:3}
+      backoff:
+        initial-interval: ${METERING_RETRY_INITIAL_INTERVAL:500ms}
+        multiplier: ${METERING_RETRY_MULTIPLIER:2.0}
+        max-interval: ${METERING_RETRY_MAX_INTERVAL:10s}
+        max-retries: ${METERING_RETRY_MAX_RETRIES:6}
+    topics:
+      usage-events-partitions: ${USAGE_EVENTS_PARTITIONS:12}
+      notification-events-partitions: ${NOTIFICATION_EVENTS_PARTITIONS:6}
+      replication-factor: ${KAFKA_TOPIC_REPLICAS:1}
+    outbox:
+      relay-interval: ${METERING_OUTBOX_RELAY_INTERVAL:2s}
+      batch-size: ${METERING_OUTBOX_BATCH_SIZE:100}
+      send-timeout: ${METERING_OUTBOX_SEND_TIMEOUT:10s}
+    stomp:
+      heartbeat: ${METERING_STOMP_HEARTBEAT:10s}
+    # Nightly re-derivation of the open period's counters from the ledger (UTC).
+    reconciliation-cron: ${METERING_RECONCILIATION_CRON:0 0 3 * * *}
