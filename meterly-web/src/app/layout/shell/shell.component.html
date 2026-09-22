@@ -29,7 +29,9 @@
         </button>
       }
       <span class="shell__title">Meterly</span>
-      <span class="shell__tenant" *ngIf="currentUser() as user">{{ user.tenant_name }}</span>
+      @if (currentUser(); as user) {
+        <span class="shell__tenant">{{ user.tenant_name }}</span>
+      }
       <span class="shell__spacer"></span>
       @if (currentUser(); as user) {
         <button mat-button [matMenuTriggerFor]="userMenu" aria-label="User menu">

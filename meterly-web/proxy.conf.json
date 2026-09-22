@@ -1,0 +1,108 @@
+{
+  "/v1/usage-events": {
+    "target": "http://localhost:8082",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/usage-events/batch": {
+    "target": "http://localhost:8082",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/usage/**": {
+    "target": "http://localhost:8083",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/ws/usage": {
+    "target": "http://localhost:8083",
+    "ws": true,
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/billing/**": {
+    "target": "http://localhost:8084",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/invoices": {
+    "target": "http://localhost:8084",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/invoices/**": {
+    "target": "http://localhost:8084",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/notifications": {
+    "target": "http://localhost:8085",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/notifications/**": {
+    "target": "http://localhost:8085",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/auth/**": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/tenants": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/me": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/tenant": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/plans": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/subscription": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/resources": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/resources/**": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/users": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/users/**": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/api-keys": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  },
+  "/v1/api-keys/**": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "logLevel": "warn"
+  }
+}

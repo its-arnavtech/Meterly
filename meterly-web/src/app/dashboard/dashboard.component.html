@@ -88,14 +88,15 @@
         </mat-card-header>
         <mat-card-content>
           @if (liveChartData().length && liveChartData()[0].series.length) {
-            <ngx-charts-line-chart
-              [results]="liveChartData()"
-              [xAxis]="true"
-              [yAxis]="true"
-              [autoScale]="true"
-              [scheme]="'cool'"
-              [view]="[undefined, 260]"
-            ></ngx-charts-line-chart>
+            <div class="chart-frame">
+              <ngx-charts-line-chart
+                [results]="liveChartData()"
+                [xAxis]="true"
+                [yAxis]="true"
+                [autoScale]="true"
+                [scheme]="'cool'"
+              ></ngx-charts-line-chart>
+            </div>
           } @else {
             <div class="meterly-empty-state">
               <mat-icon>timeline</mat-icon>
@@ -111,13 +112,14 @@
         </mat-card-header>
         <mat-card-content>
           @if (dailySeries().length && dailySeries()[0].series.length) {
-            <ngx-charts-bar-vertical
-              [results]="dailySeries()"
-              [xAxis]="true"
-              [yAxis]="true"
-              [scheme]="'cool'"
-              [view]="[undefined, 260]"
-            ></ngx-charts-bar-vertical>
+            <div class="chart-frame">
+              <ngx-charts-bar-vertical
+                [results]="dailySeries()"
+                [xAxis]="true"
+                [yAxis]="true"
+                [scheme]="'cool'"
+              ></ngx-charts-bar-vertical>
+            </div>
           } @else {
             <div class="meterly-empty-state">
               <mat-icon>bar_chart</mat-icon>
