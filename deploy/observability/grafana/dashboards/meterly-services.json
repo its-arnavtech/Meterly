@@ -1,0 +1,70 @@
+{
+  "uid": "meterly-services",
+  "title": "Meterly - Services",
+  "tags": ["meterly"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {"from": "now-30m", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP request rate per service",
+      "description": "sum(rate(http_server_requests_seconds_count[$__rate_interval])) by (service)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "targets": [
+        {"expr": "sum by (service) (rate(http_server_requests_seconds_count[$__rate_interval]))", "legendFormat": "{{service}}"}
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HTTP p95 latency per service",
+      "description": "Requires management.metrics.distribution.percentiles-histogram.http.server.requests=true (set by compose)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (service, le) (rate(http_server_requests_seconds_bucket[$__rate_interval])))", "legendFormat": "{{service}}"}
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "HTTP responses by status class per service",
+      "description": "4xx/5xx rate; also shows 429 rate-limit responses",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "targets": [
+        {"expr": "sum by (service, status) (rate(http_server_requests_seconds_count{status=~\"4..|5..\"}[$__rate_interval]))", "legendFormat": "{{service}} {{status}}"}
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "JVM heap used per service",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "targets": [
+        {"expr": "sum by (service) (jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "{{service}}"}
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "JVM live threads per service",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "targets": [
+        {"expr": "sum by (service) (jvm_threads_live_threads)", "legendFormat": "{{service}}"}
+      ]
+    }
+  ]
+}
