@@ -2,6 +2,7 @@ package com.meterly.billing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -18,10 +19,12 @@ import com.meterly.billing.support.BillingFixtures.Acme;
 import com.meterly.billing.support.BillingIntegrationTest;
 import com.meterly.common.billing.BillingPeriod;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -146,7 +149,7 @@ class BillingRunIT extends BillingIntegrationTest {
         Acme acme = BillingFixtures.acme();
         int threads = 4;
         CyclicBarrier startTogether = new CyclicBarrier(threads);
-        List<Callable<BillingRunResult>> runs = java.util.Collections.nCopies(threads, () -> {
+        List<Callable<BillingRunResult>> runs = Collections.nCopies(threads, () -> {
             startTogether.await();
             return billing.run(acme.tenantId(), AUGUST_PERIOD);
         });
@@ -232,7 +235,7 @@ class BillingRunIT extends BillingIntegrationTest {
                 .andExpect(jsonPath("$.line_items[1].resource_id").value(idle.toString()))
                 .andExpect(jsonPath("$.line_items[2].description").value("Retired resource — included (1–10,000)"))
                 .andExpect(jsonPath("$.line_items[3].description").value("Retired resource — 10,001–12,000"))
-                .andExpect(content().string(org.hamcrest.Matchers.not(containsString(gone.toString()))));
+                .andExpect(content().string(not(containsString(gone.toString()))));
     }
 
     private JsonNode body(ResultActions result) throws Exception {
@@ -245,7 +248,7 @@ class BillingRunIT extends BillingIntegrationTest {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
-        } catch (java.util.concurrent.ExecutionException e) {
+        } catch (ExecutionException e) {
             throw new IllegalStateException(e.getCause());
         }
     }

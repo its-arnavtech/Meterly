@@ -2,6 +2,7 @@ package com.meterly.billing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meterly.billing.outbox.OutboxRelay;
 import com.meterly.billing.run.BillingService;
@@ -130,7 +131,7 @@ class OutboxRelayIT extends BillingIntegrationTest {
     private NotificationEvent readEvent(String json) {
         try {
             return objectMapper.readValue(json, NotificationEvent.class);
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+        } catch (JsonProcessingException e) {
             throw new AssertionError("notification-service could not parse the record: " + e.getOriginalMessage(), e);
         }
     }
