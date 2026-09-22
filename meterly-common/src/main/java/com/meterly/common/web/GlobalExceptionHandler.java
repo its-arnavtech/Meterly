@@ -74,9 +74,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex, HttpServletRequest request) {
-        // SQL and provider exception messages can contain row contents or credentials.
-        log.error("Unhandled exception on {} {}: {}", request.getMethod(), request.getRequestURI(),
-                ex.getClass().getSimpleName());
+        // SQL and provider exception messages can contain row contents or credentials, so only the
+        // exception types and stack frames are logged: enough to locate the bug, nothing from the data.
+        log.error("Unhandled exception on {} {}:{}", request.getMethod(), request.getRequestURI(),
+                RedactedStackTrace.of(ex));
         return ResponseEntity.internalServerError().body(ProblemDetails.of(HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTERNAL_ERROR", "An unexpected error occurred", request.getRequestURI()));
     }
