@@ -24,6 +24,9 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # Redis only backs auth throttling, which fails open: never let a Redis outage stall a login.
+      timeout: ${REDIS_TIMEOUT:500ms}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:500ms}
 
 management:
   endpoints:
@@ -35,6 +38,10 @@ management:
       probes:
         enabled: true
       show-details: never
+  health:
+    # Throttling degrades gracefully without Redis, so Redis must not take tenant-service out of rotation.
+    redis:
+      enabled: false
   metrics:
     tags:
       application: ${spring.application.name}
@@ -46,14 +53,31 @@ springdoc:
     enabled: ${SWAGGER_UI_ENABLED:false}
 
 meterly:
+  tenant:
+    jwt:
+      private-key-path: ${JWT_PRIVATE_KEY_PATH:}
+      public-key-path: ${JWT_PUBLIC_KEY_PATH:}
+      key-id: ${JWT_KEY_ID:}
+      access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:15m}
+      # allow-ephemeral-key: unset = true unless the prod profile is active
+      # (override with env METERLY_TENANT_JWT_ALLOWEPHEMERALKEY=true|false).
+    throttle:
+      login-ip:
+        capacity: ${THROTTLE_LOGIN_IP_CAPACITY:50}
+        refill-per-minute: ${THROTTLE_LOGIN_IP_REFILL_PER_MINUTE:20}
+      login-email:
+        capacity: ${THROTTLE_LOGIN_EMAIL_CAPACITY:10}
+        refill-per-minute: ${THROTTLE_LOGIN_EMAIL_REFILL_PER_MINUTE:1}
+      signup-ip:
+        capacity: ${THROTTLE_SIGNUP_IP_CAPACITY:10}
+        refill-per-minute: ${THROTTLE_SIGNUP_IP_REFILL_PER_MINUTE:2}
+    bcrypt-strength: ${BCRYPT_STRENGTH:12}
   auth:
-    private-key-path: ${JWT_PRIVATE_KEY_PATH:}
-    public-key-path: ${JWT_PUBLIC_KEY_PATH:}
-    key-id: ${JWT_KEY_ID:}
     refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:false}
+    refresh-token-ttl: ${REFRESH_TOKEN_TTL:7d}
   security:
     jwt:
-      jwks-uri: ${JWT_JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+      # tenant-service validates its own tokens locally; jwks-uri is deliberately not set here.
       issuer: ${JWT_ISSUER:meterly}
       audience: ${JWT_AUDIENCE:meterly-api}
     internal-token: ${INTERNAL_TOKEN:dev-internal-token-change-me}
