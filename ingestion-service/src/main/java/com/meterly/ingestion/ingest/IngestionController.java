@@ -58,7 +58,7 @@ public class IngestionController {
         applyRateLimit(tenantId, 1, response);
         ResourceIdSource resources = resourceIdSource(authentication, tenantId);
         IngestionOutcome outcome = ingestionService.ingest(tenantId, resources, event);
-        return toResponseEntity(outcome);
+        return IngestionOutcomeMapper.toResponseEntity(outcome);
     }
 
     @PostMapping("/batch")
@@ -88,23 +88,7 @@ public class IngestionController {
             return IngestionResponses.BatchItem.rejected(idempotencyKey, "VALIDATION_FAILED", detail);
         }
         IngestionOutcome outcome = ingestionService.ingest(tenantId, resources, event);
-        return switch (outcome) {
-            case IngestionOutcome.Accepted accepted -> IngestionResponses.BatchItem.accepted(accepted.idempotencyKey());
-            case IngestionOutcome.Duplicate duplicate -> IngestionResponses.BatchItem.duplicate(duplicate.idempotencyKey());
-            case IngestionOutcome.Rejected rejected ->
-                    IngestionResponses.BatchItem.rejected(rejected.idempotencyKey(), rejected.code(), rejected.detail());
-        };
-    }
-
-    private ResponseEntity<Object> toResponseEntity(IngestionOutcome outcome) {
-        return switch (outcome) {
-            case IngestionOutcome.Accepted accepted -> ResponseEntity.status(HttpStatus.ACCEPTED)
-                    .body(new IngestionResponses.Accepted(accepted.idempotencyKey(), accepted.receivedAt()));
-            case IngestionOutcome.Duplicate duplicate ->
-                    ResponseEntity.ok(new IngestionResponses.Duplicate(duplicate.idempotencyKey()));
-            case IngestionOutcome.Rejected rejected ->
-                    throw new ApiException(rejected.status(), rejected.code(), rejected.detail());
-        };
+        return IngestionOutcomeMapper.toBatchItem(outcome);
     }
 
     private void applyRateLimit(UUID tenantId, int cost, HttpServletResponse response) {
