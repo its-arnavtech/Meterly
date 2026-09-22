@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { BillingRunRequest, BillingRunResult, InvoiceDetail, InvoiceSummary, ListResponse } from '../models';
 
@@ -21,9 +21,9 @@ export class BillingService {
   }
 
   /** 201 = generated now, 200 = already invoiced for that period (idempotent re-run). */
-  run(req: BillingRunRequest = {}): Observable<BillingRunResult> {
+  run(req: BillingRunRequest = {}, context?: HttpContext): Observable<BillingRunResult> {
     return this.http
-      .post<InvoiceDetail>('/v1/billing/run', req, { observe: 'response' })
+      .post<InvoiceDetail>('/v1/billing/run', req, { observe: 'response', context })
       .pipe(map((resp) => ({ created: resp.status === 201, invoice: resp.body as InvoiceDetail })));
   }
 }

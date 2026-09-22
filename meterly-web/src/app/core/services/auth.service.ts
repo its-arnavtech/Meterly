@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, catchError, finalize, map, of, shareReplay, tap, throwError } from 'rxjs';
 import { AuthResponse, AuthUser, Role, SignupRequest, SignupResponse } from '../models';
 
@@ -26,14 +26,14 @@ export class AuthService {
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private refreshInFlight: Observable<AuthResponse> | null = null;
 
-  login(email: string, password: string): Observable<AuthResponse> {
+  login(email: string, password: string, context?: HttpContext): Observable<AuthResponse> {
     return this.http
-      .post<AuthResponse>('/v1/auth/login', { email, password }, { withCredentials: true })
+      .post<AuthResponse>('/v1/auth/login', { email, password }, { withCredentials: true, context })
       .pipe(tap((res) => this.setSession(res)));
   }
 
-  signup(req: SignupRequest): Observable<SignupResponse> {
-    return this.http.post<SignupResponse>('/v1/tenants', req);
+  signup(req: SignupRequest, context?: HttpContext): Observable<SignupResponse> {
+    return this.http.post<SignupResponse>('/v1/tenants', req, { context });
   }
 
   /** Rotates the refresh cookie and issues a new access token. Coalesces concurrent callers. */

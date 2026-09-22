@@ -1,0 +1,8 @@
+.notifications-table {
+  width: 100%;
+  background: #fff;
+}
+
+.status-failed {
+  --mdc-chip-label-text-color: var(--meterly-danger);
+}
