@@ -72,6 +72,8 @@ meterly:
         capacity: ${THROTTLE_SIGNUP_IP_CAPACITY:10}
         refill-per-minute: ${THROTTLE_SIGNUP_IP_REFILL_PER_MINUTE:2}
     bcrypt-strength: ${BCRYPT_STRENGTH:12}
+    # Hourly cleanup of expired refresh tokens; "-" disables the job.
+    refresh-token-purge-cron: ${REFRESH_TOKEN_PURGE_CRON:0 7 * * * *}
   auth:
     refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:false}
     refresh-token-ttl: ${REFRESH_TOKEN_TTL:7d}
