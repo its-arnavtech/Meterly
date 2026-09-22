@@ -1,0 +1,21 @@
+# Fronts the SPA/reverse-proxy Service. Assumes an ingress-nginx controller; swap ingressClassName and
+# add a real TLS secret/cert-manager annotations for a production cluster. overlays/local patches the
+# host to something resolvable on a local kind/minikube cluster.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: meterly-web
+  namespace: meterly
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 256k
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "35"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: meterly.example
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: {name: web, port: {number: 8080}}
