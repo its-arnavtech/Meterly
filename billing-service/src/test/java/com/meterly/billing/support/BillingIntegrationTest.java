@@ -51,6 +51,9 @@ public abstract class BillingIntegrationTest {
     @BeforeEach
     void cleanDatabase() {
         MeterlyPostgres.truncateTenantData();
+        // The invoice sequence is standalone, so TRUNCATE ... RESTART IDENTITY does not reset it: do it here
+        // to make generated invoice numbers deterministic per test.
+        MeterlyPostgres.ownerJdbc().execute("ALTER SEQUENCE invoice_number_seq RESTART");
     }
 
     protected static String admin(UUID tenantId) {
