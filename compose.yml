@@ -4,17 +4,14 @@ x-app-environment: &app-environment
   SPRING_PROFILES_ACTIVE: dev
   DB_URL: jdbc:postgresql://postgres:5432/meterly
   DB_USERNAME: meterly_app
-  DB_PASSWORD: ${DB_APP_PASSWORD:?Run scripts/bootstrap.ps1 first}
+  DB_PASSWORD: ${DB_APP_PASSWORD:?Run java scripts/Bootstrap.java first}
   KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
   REDIS_HOST: redis
   REDIS_PORT: 6379
   JWT_JWKS_URI: http://tenant-service:8081/.well-known/jwks.json
-  INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Run scripts/bootstrap.ps1 first}
+  INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Run java scripts/Bootstrap.java first}
   TENANT_SERVICE_URL: http://tenant-service:8081
   CORS_ALLOWED_ORIGINS: http://localhost:${WEB_PORT:-8080},http://localhost:4200
-  # Histogram buckets so Prometheus can compute per-service p95/p99 latency with histogram_quantile()
-  # (see the `observability` profile). A pure Spring Boot property; no service code depends on it.
-  MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILES_HISTOGRAM_HTTP_SERVER_REQUESTS: 'true'
 
 x-app: &app
   restart: unless-stopped
@@ -43,9 +40,9 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/bootstrap.ps1 first}
-      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Run scripts/bootstrap.ps1 first}
-      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?Run scripts/bootstrap.ps1 first}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run java scripts/Bootstrap.java first}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Run java scripts/Bootstrap.java first}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?Run java scripts/Bootstrap.java first}
     ports: ['127.0.0.1:${POSTGRES_PORT:-55432}:5432']
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -107,7 +104,7 @@ services:
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/meterly
       DB_OWNER_USERNAME: meterly_owner
-      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Run scripts/bootstrap.ps1 first}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?Run java scripts/Bootstrap.java first}
       DB_APP_ROLE: meterly_app
       # Demo tenants/logins/usage for local dev and the validation harness (see meterly-db/src/main/resources/db/demo).
       # For a real deployment, override this to just `classpath:db/migration` so no demo data is ever created.
@@ -181,7 +178,7 @@ services:
       billing-service: {condition: service_healthy}
       notification-service: {condition: service_healthy}
     healthcheck:
-      test: [CMD, wget, -q, -O, /dev/null, http://localhost:8080/health]
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/health]
       interval: 10s
       timeout: 3s
       retries: 10
@@ -208,7 +205,7 @@ services:
     environment:
       # Table-owner connection: RLS does not apply to the owner, so global counts are visible
       # without a tenant bound. Read-only monitoring use only; never used by application services.
-      DATA_SOURCE_NAME: postgresql://meterly_owner:${DB_OWNER_PASSWORD:?Run scripts/bootstrap.ps1 first}@postgres:5432/meterly?sslmode=disable
+      DATA_SOURCE_NAME: postgresql://meterly_owner:${DB_OWNER_PASSWORD:?Run java scripts/Bootstrap.java first}@postgres:5432/meterly?sslmode=disable
     volumes:
       - ./deploy/observability/postgres-exporter/queries.yaml:/etc/postgres_exporter/queries.yaml:ro
     command: [--extend.query-path=/etc/postgres_exporter/queries.yaml]
