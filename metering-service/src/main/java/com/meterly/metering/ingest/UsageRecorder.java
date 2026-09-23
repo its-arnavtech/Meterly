@@ -105,7 +105,7 @@ public class UsageRecorder {
                         event.occurredAt(), inserted.recordedAt());
                 cache.project(inserted.counter(), inserted.snapshot(), update);
             }
-            case Duplicate duplicate -> cache.project(duplicate.counter(), duplicate.snapshot(), null);
+            case Duplicate duplicate -> cache.project(duplicate.counter(), duplicate.snapshot());
         }
     }
 }

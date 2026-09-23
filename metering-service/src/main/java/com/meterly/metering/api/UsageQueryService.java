@@ -73,7 +73,7 @@ public class UsageQueryService {
             Map<UUID, CounterSnapshot> recovered = readOnlyTx.execute(status -> fromDatabase(tenantId, period, misses));
             recovered.forEach((resourceId, snapshot) -> {
                 totals.put(resourceId, snapshot.totalUnits());
-                cache.project(new CounterKey(tenantId, resourceId, period), snapshot, null);
+                cache.project(new CounterKey(tenantId, resourceId, period), snapshot);
             });
         }
 

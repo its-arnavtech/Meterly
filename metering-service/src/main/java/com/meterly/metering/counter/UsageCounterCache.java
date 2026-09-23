@@ -88,6 +88,11 @@ public class UsageCounterCache {
         this.metrics = metrics;
     }
 
+    /** Version-guarded write of a snapshot nobody needs to be told about (duplicate replay, cache re-seed). */
+    public Projection project(CounterKey key, CounterSnapshot snapshot) {
+        return project(key, snapshot, null);
+    }
+
     /** Version-guarded write; publishes {@code update} on {@link RedisKeys#USAGE_UPDATES_CHANNEL} if applied. */
     public Projection project(CounterKey key, CounterSnapshot snapshot, UsageUpdate update) {
         String payload;
@@ -141,7 +146,7 @@ public class UsageCounterCache {
             failed("read", e);
             return totals;
         }
-        for (int i = 0; values != null && i < values.size(); i++) {
+        for (int i = 0; values != null && i < values.size() && i < resourceIds.size(); i++) {
             String value = values.get(i);
             if (value == null) {
                 continue;
