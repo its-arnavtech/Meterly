@@ -81,10 +81,14 @@ public final class MeterlyPostgres {
 
     /** Removes all tenant data (keeps the plan catalog) so each test class starts clean. */
     public static void truncateTenantData() {
+        // shedlock is deliberately NOT truncated: it is scheduler state owned by the running application.
+        // ShedLock remembers that a lock row exists and afterwards only UPDATEs it; deleting the row under a
+        // running service makes every later UPDATE match nothing, which ShedLock reads as "held elsewhere",
+        // so that job would never run again in the test JVM.
         ownerJdbc().execute("""
                 TRUNCATE tenant, app_user, refresh_token, subscription, metered_resource, api_key,
                          usage_event, usage_period_aggregate, invoice, invoice_line_item, notification,
-                         outbox_event, shedlock
+                         outbox_event
                 RESTART IDENTITY CASCADE
                 """);
     }
