@@ -4,16 +4,18 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.meterly.validation.http.ApiClient;
 import com.meterly.validation.http.ApiResponse;
 import com.meterly.validation.http.Auth;
+import com.meterly.validation.http.HarnessException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Posts a single usage event to {@code POST /v1/usage-events}, honoring {@code 429} +
- * {@code Retry-After} by backing off and retrying (contract §9 item 2 and §2) rather than treating a
- * rate limit as a failure. Shared by the idempotent-metering check (a 950-event burst) and the
- * rate-limit check (a deliberate burst that is meant to trip 429s).
+ * Posts a single usage event to {@code POST /v1/usage-events}, honoring {@code 429} + {@code Retry-After}
+ * and retrying on a transport-level failure (connection refused/reset/timeout), by backing off and
+ * resending with the same idempotency key (contract §9 item 2 and §2) rather than treating either as a
+ * failure. Shared by the idempotent-metering check (a 950-event burst) and the rate-limit check (a
+ * deliberate burst that is meant to trip 429s).
  */
 public final class IngestionClient {
 
@@ -34,10 +36,24 @@ public final class IngestionClient {
         int attempts = 0;
         while (attempts < maxAttempts) {
             attempts++;
-            ApiResponse<Map<String, Object>> response = api.post("/v1/usage-events", auth,
-                    new EventRequest(resourceId, idempotencyKey, quantity),
-                    new TypeReference<Map<String, Object>>() {
-                    });
+            ApiResponse<Map<String, Object>> response;
+            try {
+                response = api.post("/v1/usage-events", auth,
+                        new EventRequest(resourceId, idempotencyKey, quantity),
+                        new TypeReference<Map<String, Object>>() {
+                        });
+            } catch (HarnessException transportFailure) {
+                // A connection reset/refused/timeout under a large concurrent burst is not a rejection by
+                // the server — it never reached it, or the response never made it back. The request is
+                // exactly as safe to retry as a 429: the idempotency key makes a retry a no-op if the
+                // original secretly landed, and this is exactly how a real client is expected to behave
+                // (contract §2). Without this, a single transient blip drops the event with zero retries.
+                if (attempts >= maxAttempts) {
+                    return new PostOutcome(idempotencyKey, -1, attempts, transportFailure.getMessage(), 0);
+                }
+                sleep(Duration.ofMillis(ThreadLocalRandom.current().nextLong(100, 400)));
+                continue;
+            }
             if (response.status() == 202 || response.status() == 200) {
                 return new PostOutcome(idempotencyKey, response.status(), attempts, response.rawBody(), 0);
             }

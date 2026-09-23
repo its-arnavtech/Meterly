@@ -33,7 +33,13 @@ public final class MeteringIdempotencyCheck {
     private static final int UNIQUE_EVENTS = 950;
     private static final int DUPLICATE_RETRIES = 50;
     private static final int KAFKA_REDELIVERIES = 50;
-    private static final int MAX_ATTEMPTS_PER_EVENT = 40; // generous: bucket refills at 100/s
+    private static final int MAX_ATTEMPTS_PER_EVENT = 40; // generous: bucket refills at 200/s
+    // Bounded, not one raw TCP connection per event: opening ~950 simultaneous new connections can
+    // exceed the local machine/Docker Desktop's connection-accept capacity before it ever reaches the
+    // rate limiter (observed as client-side "Connection refused", nothing server-side to show for it).
+    // A bounded worker pool reuses HTTP/1.1 keep-alive connections, which is also how a real
+    // high-throughput client behaves.
+    private static final int MAX_CONCURRENT_REQUESTS = 150;
 
     private MeteringIdempotencyCheck() {
     }
@@ -97,7 +103,9 @@ public final class MeteringIdempotencyCheck {
     }
 
     private static List<PostOutcome> sendConcurrently(ApiClient api, Auth auth, UUID resourceId, List<String> keys) {
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        // A fixed-size platform-thread pool caps in-flight connections at MAX_CONCURRENT_REQUESTS instead
+        // of opening one raw TCP connection per event; see the constant's comment.
+        try (ExecutorService executor = Executors.newFixedThreadPool(MAX_CONCURRENT_REQUESTS)) {
             List<Future<PostOutcome>> futures = keys.stream()
                     .map(key -> executor.submit(() ->
                             IngestionClient.postWithBackoff(api, auth, resourceId, key, 1, MAX_ATTEMPTS_PER_EVENT)))

@@ -13,14 +13,26 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Contract §9 item 4: bursting past the per-tenant token bucket (default capacity 200, refill
- * 100/s — {@code IngestionRateLimiter}) gets {@code 429} + {@code Retry-After} for that tenant only;
+ * Contract §9 item 4: bursting past the per-tenant token bucket (default capacity 500, refill
+ * 200/s — {@code TokenBucketRateLimiter}) gets {@code 429} + {@code Retry-After} for that tenant only;
  * another tenant is unaffected; the bucket recovers after waiting. Uses the fresh tenant's dedicated
  * "Rate Limit Test" resource so this burst never touches the idempotent-metering check's ledger.
+ *
+ * <p>The burst is dispatched from a small, fixed pool of workers that each send many requests
+ * sequentially over a reused HTTP/1.1 (keep-alive) connection, not one virtual thread per request each
+ * opening its own new connection: opening thousands of simultaneous new TCP connections can exceed the
+ * local machine's connection-accept capacity before the requests ever reach the rate limiter (observed
+ * as a client-side "Connection refused", with nothing server-side to show for it and no request rate
+ * anywhere near the refill rate). A bounded pool reusing connections is also how a real high-throughput
+ * client behaves, and reliably drives sustained throughput above the refill rate.
  */
 public final class RateLimitCheck {
 
-    private static final int BURST_SIZE = 600; // comfortably above capacity(200) + refill during the burst
+    // 90 workers x 50 sequential requests = 4500 total, comfortably exceeding capacity(500) plus
+    // whatever refills (200/s) during the burst's wall-clock time, with headroom for a slower CI box.
+    private static final int BURST_WORKERS = 90;
+    private static final int REQUESTS_PER_WORKER = 50;
+    private static final int BURST_SIZE = BURST_WORKERS * REQUESTS_PER_WORKER;
 
     private RateLimitCheck() {
     }
@@ -63,16 +75,31 @@ public final class RateLimitCheck {
     }
 
     private static List<PostOutcome> burst(ApiClient api, Organization target, UUID resourceId) {
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Future<PostOutcome>> futures = new ArrayList<>(BURST_SIZE);
-            for (int i = 0; i < BURST_SIZE; i++) {
-                String key = "val-ratelimit-burst-" + UUID.randomUUID();
-                futures.add(executor.submit(() -> IngestionClient.postOnce(api, target.apiKeyAuth(), resourceId, key, 1)));
+        // A fixed pool of BURST_WORKERS, each firing REQUESTS_PER_WORKER requests sequentially on a
+        // reused keep-alive connection: see the class javadoc for why this beats one connection per
+        // request. A transport-level failure here (rather than a real 429) is recorded as its own
+        // outcome, not silently retried, since this check needs to see the 429 itself.
+        try (ExecutorService executor = Executors.newFixedThreadPool(BURST_WORKERS)) {
+            List<Future<List<PostOutcome>>> futures = new ArrayList<>(BURST_WORKERS);
+            for (int w = 0; w < BURST_WORKERS; w++) {
+                futures.add(executor.submit(() -> {
+                    List<PostOutcome> workerResults = new ArrayList<>(REQUESTS_PER_WORKER);
+                    for (int i = 0; i < REQUESTS_PER_WORKER; i++) {
+                        String key = "val-ratelimit-burst-" + UUID.randomUUID();
+                        try {
+                            workerResults.add(IngestionClient.postOnce(api, target.apiKeyAuth(), resourceId, key, 1));
+                        } catch (RuntimeException transportFailure) {
+                            // Keep going: one blip shouldn't discard this worker's remaining requests.
+                            workerResults.add(new PostOutcome(key, -1, 1, transportFailure.getMessage(), 0));
+                        }
+                    }
+                    return workerResults;
+                }));
             }
-            List<PostOutcome> results = new ArrayList<>(futures.size());
-            for (Future<PostOutcome> future : futures) {
+            List<PostOutcome> results = new ArrayList<>(BURST_SIZE);
+            for (Future<List<PostOutcome>> future : futures) {
                 try {
-                    results.add(future.get(30, TimeUnit.SECONDS));
+                    results.addAll(future.get(60, TimeUnit.SECONDS));
                 } catch (Exception e) {
                     results.add(new PostOutcome("unknown", -1, 0, e.getMessage(), 0));
                 }
