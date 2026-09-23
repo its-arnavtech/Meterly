@@ -22,6 +22,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -362,17 +365,40 @@ class IngestionEndpointsIT {
     // ---- rate limiting -----------------------------------------------------------------------------------
 
     @Test
-    void burstBeyondTheBucketIsRateLimitedWithoutAffectingAnotherTenant() {
+    void burstBeyondTheBucketIsRateLimitedWithoutAffectingAnotherTenant() throws InterruptedException {
         Tenant tenant = newTenant();
-        ResponseEntity<Map> last = null;
-        for (int i = 0; i < 6; i++) {
-            last = postSingle(apiKeyHeaders(tenant.apiKey()),
-                    body(tenant.resourceId(), "req-" + UUID.randomUUID(), 1, null));
-        }
+        // Fired concurrently, not one-at-a-time: a sequential loop leaves enough wall-clock time between
+        // requests for the token bucket to refill on a slow/loaded machine, which would flakily let every
+        // request through regardless of the configured rate. Dispatching all 6 at once collapses that gap
+        // to nearly zero, so exactly capacity(5) succeed and the rest are rejected no matter how fast or
+        // slow each individual HTTP round trip is.
+        int burstSize = 6;
+        ExecutorService executor = Executors.newFixedThreadPool(burstSize);
+        try {
+            List<Future<ResponseEntity<Map>>> futures = new ArrayList<>();
+            for (int i = 0; i < burstSize; i++) {
+                futures.add(executor.submit(() -> postSingle(apiKeyHeaders(tenant.apiKey()),
+                        body(tenant.resourceId(), "req-" + UUID.randomUUID(), 1, null))));
+            }
+            List<ResponseEntity<Map>> responses = new ArrayList<>();
+            for (Future<ResponseEntity<Map>> future : futures) {
+                responses.add(future.get(30, java.util.concurrent.TimeUnit.SECONDS));
+            }
 
-        assertThat(last.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
-        assertThat(last.getBody().get("code")).isEqualTo("RATE_LIMITED");
-        assertThat(last.getHeaders().getFirst("Retry-After")).isNotNull();
+            long accepted = responses.stream().filter(r -> r.getStatusCode() == HttpStatus.ACCEPTED).count();
+            long rateLimited = responses.stream().filter(r -> r.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS).count();
+            assertThat(accepted).isEqualTo(5);
+            assertThat(rateLimited).isEqualTo(1);
+            ResponseEntity<Map> rejected = responses.stream()
+                    .filter(r -> r.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS)
+                    .findFirst().orElseThrow();
+            assertThat(rejected.getBody().get("code")).isEqualTo("RATE_LIMITED");
+            assertThat(rejected.getHeaders().getFirst("Retry-After")).isNotNull();
+        } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
+            throw new AssertionError(e);
+        } finally {
+            executor.shutdown();
+        }
 
         Tenant otherTenant = newTenant();
         ResponseEntity<Map> otherResponse = postSingle(apiKeyHeaders(otherTenant.apiKey()),
