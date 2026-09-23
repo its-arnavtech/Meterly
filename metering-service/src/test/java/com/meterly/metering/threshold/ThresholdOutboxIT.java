@@ -3,6 +3,7 @@ package com.meterly.metering.threshold;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.meterly.common.billing.BillingPeriod;
 import com.meterly.common.event.NotificationEvent;
 import com.meterly.common.event.Topics;
@@ -50,21 +51,27 @@ class ThresholdOutboxIT extends MeteringIntegrationTest {
         assertThat(published).hasSize(2);
         assertThat(published).allSatisfy(record ->
                 assertThat(record.key()).isEqualTo(tenant.tenantId().toString()));
-        ConsumerRecord<String, String> hundredPercent = published.stream()
-                .filter(record -> record.value().contains("\"threshold_percent\":100"))
+        // The payload travels through a jsonb column, which reformats the JSON: assert on the tree,
+        // not on the exact text, but still on the wire names and on money-free numeric types.
+        JsonNode hundredPercent = published.stream()
+                .map(record -> tree(record.value()))
+                .filter(node -> node.path("threshold_percent").asInt() == 100)
                 .findFirst()
                 .orElseThrow();
-        assertThat(hundredPercent.value())
-                .contains("\"type\":\"" + NotificationEvent.USAGE_THRESHOLD_CROSSED + "\"")
-                .contains("\"tenant_id\":\"" + tenant.tenantId() + "\"")
-                .contains("\"resource_id\":\"" + tenant.resourceId() + "\"")
-                .contains("\"resource_name\":\"API calls\"")
-                .contains("\"period_start\":\"" + BillingPeriod.current(clock).start() + "\"")
-                .contains("\"threshold_percent\":100")
-                .contains("\"total_units\":" + STARTER_INCLUDED_UNITS)
-                .contains("\"included_units\":" + STARTER_INCLUDED_UNITS);
+        assertThat(hundredPercent.path("type").asText()).isEqualTo(NotificationEvent.USAGE_THRESHOLD_CROSSED);
+        assertThat(hundredPercent.path("event_id").asText()).isNotBlank();
+        assertThat(hundredPercent.path("tenant_id").asText()).isEqualTo(tenant.tenantId().toString());
+        assertThat(hundredPercent.path("resource_id").asText()).isEqualTo(tenant.resourceId().toString());
+        assertThat(hundredPercent.path("resource_name").asText()).isEqualTo("API calls");
+        assertThat(hundredPercent.path("period_start").asText())
+                .isEqualTo(BillingPeriod.current(clock).start().toString());
+        assertThat(hundredPercent.path("occurred_at").asText()).endsWith("Z");
+        assertThat(hundredPercent.path("threshold_percent").isNumber()).isTrue();
+        assertThat(hundredPercent.path("total_units").isNumber()).isTrue();
+        assertThat(hundredPercent.path("total_units").asLong()).isEqualTo(STARTER_INCLUDED_UNITS);
+        assertThat(hundredPercent.path("included_units").asLong()).isEqualTo(STARTER_INCLUDED_UNITS);
 
-        NotificationEvent event = read(hundredPercent.value());
+        NotificationEvent event = read(hundredPercent.toString());
         String summary = switch (event) {
             case NotificationEvent.InvoiceIssued invoice -> "invoice " + invoice.invoiceNumber();
             case NotificationEvent.UsageThresholdCrossed crossed ->
@@ -77,6 +84,14 @@ class ThresholdOutboxIT extends MeteringIntegrationTest {
     private NotificationEvent read(String json) {
         try {
             return objectMapper.readValue(json, NotificationEvent.class);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private JsonNode tree(String json) {
+        try {
+            return objectMapper.readTree(json);
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }

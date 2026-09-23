@@ -7,8 +7,6 @@ package com.meterly.metering.counter;
  */
 public record CounterSnapshot(long totalUnits, long ledgerVersion) {
 
-    public static final CounterSnapshot EMPTY = new CounterSnapshot(0, 0);
-
     public CounterSnapshot {
         if (totalUnits < 0 || ledgerVersion < 0) {
             throw new IllegalArgumentException("Counter values must not be negative");
