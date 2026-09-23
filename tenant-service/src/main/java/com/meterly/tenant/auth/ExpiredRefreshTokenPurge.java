@@ -35,7 +35,8 @@ public class ExpiredRefreshTokenPurge {
         }
     }
 
-    long purgeNow() {
+    /** Runs the purge immediately and returns how many rows were deleted. */
+    public long purgeNow() {
         return jdbc.sql("SELECT auth_purge_expired_refresh_tokens(:expiredBefore)")
                 .param("expiredBefore", JdbcColumns.timestamp(clock.instant()))
                 .query(Long.class)

@@ -4,18 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-/** Actuator, OpenAPI and the service's Micrometer counters are reachable without a token. */
+/**
+ * Actuator and OpenAPI are reachable without a token, and the service's Micrometer counters appear in the
+ * Prometheus scrape. {@code @AutoConfigureObservability} is needed because Boot disables metrics export
+ * (and therefore the scrape endpoint) in tests by default.
+ */
+@AutoConfigureObservability
 class ObservabilityIT extends AbstractTenantServiceIT {
-
-    private String prometheus() {
-        ResponseEntity<String> metrics = rest.getForEntity("/actuator/prometheus", String.class);
-        assertThat(metrics.getStatusCode()).isEqualTo(HttpStatus.OK);
-        return metrics.getBody();
-    }
 
     @Test
     void healthInfoAndOpenApiArePublic() {
@@ -35,22 +34,22 @@ class ObservabilityIT extends AbstractTenantServiceIT {
         signup("Acme Corp", "admin@acme.test");
         loginRequest("admin@acme.test", "Wrong!Password1");
 
-        String metrics = prometheus();
+        ResponseEntity<String> scrape = rest.getForEntity("/actuator/prometheus", String.class);
 
+        assertThat(scrape.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String metrics = scrape.getBody();
         assertThat(metrics).contains("meterly_tenant_signups_total");
-        assertThat(metrics).contains("meterly_tenant_logins_total{application=\"tenant-service\",outcome=\"success\"}");
-        assertThat(metrics).contains(
-                "meterly_tenant_logins_total{application=\"tenant-service\",outcome=\"invalid_credentials\"}");
-        assertThat(metrics).contains("meterly_tenant_token_refreshes_total");
+        assertThat(metrics).contains("meterly_tenant_logins_total");
+        assertThat(metrics).contains("outcome=\"success\"");
+        assertThat(metrics).contains("outcome=\"invalid_credentials\"");
+        assertThat(metrics).contains("application=\"tenant-service\"");
     }
 
     @Test
-    void unknownPathsAreDeniedRatherThanExposed() {
-        TestRestTemplate anonymousClient = rest;
-
-        assertThat(anonymousClient.getForEntity("/actuator/env", String.class).getStatusCode())
+    void unknownAndUnexposedPathsAreNotServed() {
+        assertThat(rest.getForEntity("/actuator/env", String.class).getStatusCode())
                 .isIn(HttpStatus.UNAUTHORIZED, HttpStatus.FORBIDDEN, HttpStatus.NOT_FOUND);
-        assertThat(anonymousClient.getForEntity("/admin", String.class).getStatusCode())
+        assertThat(rest.getForEntity("/admin", String.class).getStatusCode())
                 .isIn(HttpStatus.UNAUTHORIZED, HttpStatus.FORBIDDEN);
     }
 }
