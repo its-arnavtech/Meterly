@@ -61,6 +61,11 @@ meterly:
       access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:15m}
       # allow-ephemeral-key: unset = true unless the prod profile is active
       # (override with env METERLY_TENANT_JWT_ALLOWEPHEMERALKEY=true|false).
+      # Key rotation: publish the previous public key alongside the new signing key until the last
+      # token signed with it has expired, e.g.
+      #   additional-public-keys[0].path: /run/keys/jwt-public-previous.pem
+      #   additional-public-keys[0].key-id: local-rsa-0
+      # (env METERLY_TENANT_JWT_ADDITIONALPUBLICKEYS_0_PATH / ..._0_KEYID).
     throttle:
       login-ip:
         capacity: ${THROTTLE_LOGIN_IP_CAPACITY:50}
