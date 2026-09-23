@@ -94,9 +94,9 @@ The migrator seeds two demo tenants (`db/demo/R__demo_seed.sql`, only applied wh
 
 | Tenant | Login | Password | Plan | API key |
 |---|---|---|---|---|
-| Acme Corp | `admin@acme.test` | `Meterly!2026` | STARTER | `mk_demo_acme_2Yh8Qe4LxN7vR1tK9pWz3cJ5` |
+| Acme Corp | `admin@acme.test` | `Meterly!2026` | STARTER | `mk_live_6Nfuu8kyqiwSqUtZKiUCFxXR_qss52QDotFDIX_3EDY` |
 | Acme Corp | `viewer@acme.test` (TENANT_USER) | `Meterly!2026` | — | — |
-| Globex | `admin@globex.test` | `Meterly!2026` | GROWTH | `mk_demo_globex_6Bn3Df8MsQ1wT5yH7kLr9aE2` |
+| Globex | `admin@globex.test` | `Meterly!2026` | GROWTH | `mk_live_PD2LNw8f1F2RxuhbmnBm-hnoC0WQGifEW5BUKXVu4kA` |
 
 Acme's previous-month usage bills to **278.69 USD**; Globex's to **249.00 USD** (hand-calculated in
 the seed file's comments — this is also what `meterly-validation` independently recomputes).
@@ -111,7 +111,7 @@ curl -s -X POST http://localhost:8080/v1/auth/login \
 
 # Send a usage event with the demo API key
 curl -s -X POST http://localhost:8080/v1/usage-events \
-  -H 'X-API-Key: mk_demo_acme_2Yh8Qe4LxN7vR1tK9pWz3cJ5' -H 'Content-Type: application/json' \
+  -H 'X-API-Key: mk_live_6Nfuu8kyqiwSqUtZKiUCFxXR_qss52QDotFDIX_3EDY' -H 'Content-Type: application/json' \
   -d '{"resource_id":"a1111111-0000-4000-8000-000000000001","idempotency_key":"demo-1","quantity":1}'
 
 # Current-period usage (needs a bearer token from /v1/auth/login)
@@ -151,7 +151,7 @@ java -jar meterly-validation/target/meterly-validation.jar \
 
 # Standalone soak test (not part of the pass/fail bar):
 java -jar meterly-validation/target/meterly-validation.jar load \
-  --api-key mk_demo_acme_2Yh8Qe4LxN7vR1tK9pWz3cJ5 \
+  --api-key mk_live_6Nfuu8kyqiwSqUtZKiUCFxXR_qss52QDotFDIX_3EDY \
   --resource-id a1111111-0000-4000-8000-000000000001 --rps 20 --duration 60
 ```
 

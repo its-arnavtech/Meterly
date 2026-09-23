@@ -3,9 +3,9 @@
 -- Idempotent: fixed ids + ON CONFLICT DO NOTHING. Dates are relative to the first run.
 --
 --   Tenant       Login                 Password       Plan      API key
---   Acme Corp    admin@acme.test       Meterly!2026   STARTER   mk_demo_acme_2Yh8Qe4LxN7vR1tK9pWz3cJ5
+--   Acme Corp    admin@acme.test       Meterly!2026   STARTER   mk_live_6Nfuu8kyqiwSqUtZKiUCFxXR_qss52QDotFDIX_3EDY
 --                viewer@acme.test      Meterly!2026   (TENANT_USER, dashboard only)
---   Globex       admin@globex.test     Meterly!2026   GROWTH    mk_demo_globex_6Bn3Df8MsQ1wT5yH7kLr9aE2
+--   Globex       admin@globex.test     Meterly!2026   GROWTH    mk_live_PD2LNw8f1F2RxuhbmnBm-hnoC0WQGifEW5BUKXVu4kA
 --
 -- Previous-month usage and the hand-calculated invoice each tenant should receive:
 --   Acme   API calls 150,000 ; Webhooks 12,345 (STARTER: 10,000 included per resource)
@@ -51,10 +51,10 @@ BEGIN
     ON CONFLICT DO NOTHING;
 
     INSERT INTO api_key (id, tenant_id, name, prefix, key_hash) VALUES
-        ('e1111111-0000-4000-8000-000000000001', acme, 'Demo key', 'mk_demo_acme',
-         encode(digest('mk_demo_acme_2Yh8Qe4LxN7vR1tK9pWz3cJ5', 'sha256'), 'hex')),
-        ('e2222222-0000-4000-8000-000000000001', globex, 'Demo key', 'mk_demo_glob',
-         encode(digest('mk_demo_globex_6Bn3Df8MsQ1wT5yH7kLr9aE2', 'sha256'), 'hex'))
+        ('e1111111-0000-4000-8000-000000000001', acme, 'Demo key', 'mk_live_6Nfu',
+         encode(digest('mk_live_6Nfuu8kyqiwSqUtZKiUCFxXR_qss52QDotFDIX_3EDY', 'sha256'), 'hex')),
+        ('e2222222-0000-4000-8000-000000000001', globex, 'Demo key', 'mk_live_PD2L',
+         encode(digest('mk_live_PD2LNw8f1F2RxuhbmnBm-hnoC0WQGifEW5BUKXVu4kA', 'sha256'), 'hex'))
     ON CONFLICT DO NOTHING;
 
     -- Previous month: Acme API calls 150 x 1,000 = 150,000
