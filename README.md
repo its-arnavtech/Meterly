@@ -67,12 +67,14 @@ email).
 
 ## Quickstart
 
-Requires Docker Desktop and PowerShell 7+ (`pwsh`).
+Requires Docker Desktop and a JDK 21+ (nothing else: the bootstrap is plain Java).
 
-```powershell
-pwsh scripts/bootstrap.ps1        # generates .env + secrets/jwt-{private,public}.pem (gitignored, once)
+```bash
+java scripts/Bootstrap.java       # generates .env + secrets/jwt-{private,public}.pem (gitignored, once)
 docker compose up -d --build      # postgres, redis, redpanda, migrator, all 5 services, web, mailpit
 ```
+
+(`pwsh scripts/bootstrap.ps1` does the same on PowerShell 7+.)
 
 Wait for everything healthy (`docker compose ps`), then:
 
@@ -195,7 +197,8 @@ deploy/                  nginx SPA config, Postgres role bootstrap, Redpanda top
                           deploy/k8s (Kubernetes), deploy/observability (Prometheus/Grafana)
 docs/                    api-contract.md (binding), architecture.md, operations.md, engineering-guide.md,
                           why-java.md, the original PDD/POC
-scripts/bootstrap.ps1    generates local-only secrets (.env, secrets/*.pem); never commits them
+scripts/Bootstrap.java   generates local-only secrets (.env, secrets/*.pem); never commits them
+                          (scripts/bootstrap.ps1 is the PowerShell 7 equivalent)
 .github/                 CI workflow + Dependabot
 ```
 
