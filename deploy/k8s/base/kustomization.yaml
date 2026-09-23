@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - secret.example.yaml
+  - configmap-shared.yaml
+  - migrator-job.yaml
+  - tenant-service.yaml
+  - ingestion-service.yaml
+  - metering-service.yaml
+  - billing-service.yaml
+  - notification-service.yaml
+  - web.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - ingress.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: meterly
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: true

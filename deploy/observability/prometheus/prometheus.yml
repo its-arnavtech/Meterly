@@ -1,0 +1,43 @@
+# Prometheus scrape config for the local Compose stack (profile: observability).
+# Every Meterly service is a Spring Boot app exposing Micrometer metrics at /actuator/prometheus
+# on its own container port, reachable by service name on the compose network.
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+  external_labels:
+    environment: compose-local
+
+scrape_configs:
+  - job_name: tenant-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['tenant-service:8081']
+        labels: {service: tenant-service}
+
+  - job_name: ingestion-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['ingestion-service:8082']
+        labels: {service: ingestion-service}
+
+  - job_name: metering-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['metering-service:8083']
+        labels: {service: metering-service}
+
+  - job_name: billing-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['billing-service:8084']
+        labels: {service: billing-service}
+
+  - job_name: notification-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['notification-service:8085']
+        labels: {service: notification-service}
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

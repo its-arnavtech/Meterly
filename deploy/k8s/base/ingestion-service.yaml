@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingestion-service-config
+  namespace: meterly
+data:
+  SERVER_PORT: "8082"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingestion-service
+  namespace: meterly
+  labels: {app.kubernetes.io/name: ingestion-service, app.kubernetes.io/part-of: meterly}
+spec:
+  selector: {app.kubernetes.io/name: ingestion-service}
+  ports: [{name: http, port: 8082, targetPort: 8082}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestion-service
+  namespace: meterly
+  labels: {app.kubernetes.io/name: ingestion-service, app.kubernetes.io/part-of: meterly}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app.kubernetes.io/name: ingestion-service}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: ingestion-service, app.kubernetes.io/part-of: meterly}
+      annotations: {prometheus.io/scrape: "true", prometheus.io/port: "8082", prometheus.io/path: /actuator/prometheus}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: ingestion-service
+          image: meterly/ingestion-service:local
+          imagePullPolicy: IfNotPresent
+          ports: [{name: http, containerPort: 8082}]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          envFrom:
+            - configMapRef: {name: meterly-shared-config}
+            - configMapRef: {name: ingestion-service-config}
+          env:
+            - {name: INTERNAL_TOKEN, valueFrom: {secretKeyRef: {name: meterly-secrets, key: INTERNAL_TOKEN}}}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+          resources:
+            requests: {cpu: 250m, memory: 256Mi}
+            limits: {cpu: 1000m, memory: 512Mi}
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: 8082}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: 8082}
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 6
+      volumes:
+        - {name: tmp, emptyDir: {}}
