@@ -41,10 +41,20 @@
         <p class="auth-plan-label">Plan</p>
         <mat-radio-group formControlName="plan_code" class="auth-plan-group" aria-label="Plan">
           @for (plan of plans(); track plan.code) {
-            <mat-radio-button [value]="plan.code" class="auth-plan-option">
-              <strong>{{ plan.name }}</strong> — {{ plan.base_price | money }}/mo,
-              {{ plan.included_units | number }} included units
-            </mat-radio-button>
+            <div class="auth-plan-option">
+              <mat-radio-button [value]="plan.code">
+                <strong>{{ plan.name }}</strong> — {{ plan.base_price | money }}/mo,
+                {{ plan.included_units | number }} included units
+              </mat-radio-button>
+              <ul class="auth-tier-list">
+                @for (tier of plan.tiers; track tier.from_unit) {
+                  <li>
+                    {{ tier.from_unit | number }}–{{ tier.to_unit ? (tier.to_unit | number) : '∞' }}:
+                    {{ tier.unit_price | money: 'unit' }}/unit
+                  </li>
+                }
+              </ul>
+            </div>
           }
         </mat-radio-group>
 

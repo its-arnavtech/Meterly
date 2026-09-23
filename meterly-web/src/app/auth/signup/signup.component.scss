@@ -30,7 +30,17 @@
 }
 
 .auth-plan-option {
+  display: block;
   font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.auth-tier-list {
+  margin: 4px 0 0 32px;
+  padding: 0;
+  list-style: disc;
+  font-size: 0.78rem;
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .auth-submit {
