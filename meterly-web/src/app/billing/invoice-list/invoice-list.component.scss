@@ -1,0 +1,24 @@
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.list-header button mat-spinner {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.invoice-table {
+  width: 100%;
+  background: #fff;
+}
+
+@media (max-width: 599px) {
+  .invoice-table {
+    font-size: 0.8rem;
+  }
+}

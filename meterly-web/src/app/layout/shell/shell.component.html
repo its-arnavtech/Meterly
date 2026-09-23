@@ -1,0 +1,56 @@
+<mat-sidenav-container class="shell">
+  <mat-sidenav
+    #sidenav
+    class="shell__sidenav"
+    [mode]="isMobile() ? 'over' : 'side'"
+    [opened]="!isMobile()"
+    [fixedInViewport]="isMobile()"
+  >
+    <mat-nav-list>
+      @for (item of navItems(); track item.path) {
+        <a
+          mat-list-item
+          [routerLink]="item.path"
+          routerLinkActive="shell__nav-active"
+          (click)="isMobile() && sidenav.close()"
+        >
+          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+          <span matListItemTitle>{{ item.label }}</span>
+        </a>
+      }
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar color="primary" class="shell__toolbar">
+      @if (isMobile()) {
+        <button mat-icon-button aria-label="Toggle navigation" (click)="sidenav.toggle()">
+          <mat-icon>menu</mat-icon>
+        </button>
+      }
+      <span class="shell__title">Meterly</span>
+      @if (currentUser(); as user) {
+        <span class="shell__tenant">{{ user.tenant_name }}</span>
+      }
+      <span class="shell__spacer"></span>
+      @if (currentUser(); as user) {
+        <button mat-button [matMenuTriggerFor]="userMenu" aria-label="User menu">
+          <mat-icon>account_circle</mat-icon>
+          {{ user.email }}
+        </button>
+        <mat-menu #userMenu="matMenu">
+          <div class="shell__role-badge" mat-menu-item disabled>{{ user.role }}</div>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="logout()">
+            <mat-icon>logout</mat-icon>
+            <span>Log out</span>
+          </button>
+        </mat-menu>
+      }
+    </mat-toolbar>
+
+    <main class="shell__content">
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

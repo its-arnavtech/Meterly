@@ -1,0 +1,50 @@
+.shell {
+  height: 100vh;
+}
+
+.shell__sidenav {
+  width: 240px;
+}
+
+.shell__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 8px;
+}
+
+.shell__title {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.shell__tenant {
+  opacity: 0.85;
+  font-size: 0.9rem;
+  margin-left: 12px;
+}
+
+.shell__spacer {
+  flex: 1 1 auto;
+}
+
+.shell__role-badge {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.shell__content {
+  min-height: calc(100vh - 64px);
+}
+
+.shell__nav-active {
+  background: rgba(0, 0, 0, 0.06);
+  font-weight: 600;
+}
+
+@media (max-width: 599px) {
+  .shell__tenant {
+    display: none;
+  }
+}

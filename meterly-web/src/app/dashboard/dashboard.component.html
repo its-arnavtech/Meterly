@@ -1,0 +1,133 @@
+<div class="meterly-page">
+  @if (loading()) {
+    <div class="meterly-empty-state">
+      <mat-icon>hourglass_empty</mat-icon>
+      <span>Loading usage…</span>
+    </div>
+  } @else if (!usageCurrent() || usageCurrent()!.items.length === 0) {
+    <div class="meterly-empty-state">
+      <mat-icon>bar_chart</mat-icon>
+      <span>No metered resources yet.</span>
+    </div>
+  } @else {
+    <header class="dash-header">
+      <div>
+        <h1>Usage dashboard</h1>
+        <p class="dash-period">
+          {{ usageCurrent()!.period_start | date: 'mediumDate' }} –
+          {{ usageCurrent()!.period_end | date: 'mediumDate' }}
+          · Plan: {{ usageCurrent()!.plan.name }}
+        </p>
+      </div>
+      <div class="dash-header__actions">
+        <mat-chip-set>
+          <mat-chip [class.conn-connected]="connectionState() === 'connected'"
+                    [class.conn-connecting]="connectionState() === 'connecting'"
+                    [class.conn-error]="connectionState() === 'error' || connectionState() === 'disconnected'">
+            <mat-icon matChipAvatar>{{ connectionState() === 'connected' ? 'wifi' : 'wifi_off' }}</mat-icon>
+            Live: {{ connectionState() }}
+          </mat-chip>
+        </mat-chip-set>
+        @if (isAdmin()) {
+          <button mat-stroked-button color="primary" (click)="openSendTestEvent()">
+            <mat-icon>send</mat-icon>
+            Send test event
+          </button>
+        }
+      </div>
+    </header>
+
+    <section class="dash-cards">
+      @for (item of usageCurrent()!.items; track item.resource_id) {
+        <mat-card class="dash-card" (click)="selectResource(item.resource_id)" [class.dash-card--active]="item.resource_id === selectedResourceId()">
+          <mat-card-header>
+            <mat-card-title>{{ item.resource_name }}</mat-card-title>
+            <mat-card-subtitle>{{ item.total_units | number }} {{ item.unit_label }}s</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <mat-progress-bar
+              mode="determinate"
+              [value]="item.percent_of_included > 100 ? 100 : item.percent_of_included"
+              [color]="progressColor(item.percent_of_included)"
+            ></mat-progress-bar>
+            <p class="dash-card__meta">
+              {{ item.percent_of_included | number: '1.0-1' }}% of {{ item.included_units | number }} included
+            </p>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      @if (isAdmin() && billingPreview(); as preview) {
+        <mat-card class="dash-card dash-card--cost">
+          <mat-card-header>
+            <mat-card-title>Estimated cost this period</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p class="dash-card__cost">{{ preview.total_amount | money }}</p>
+            <p class="dash-card__meta">Based on usage so far — recalculated at period close.</p>
+          </mat-card-content>
+        </mat-card>
+      }
+    </section>
+
+    <section class="dash-select">
+      <mat-form-field appearance="outline">
+        <mat-label>Resource</mat-label>
+        <mat-select [value]="selectedResourceId()" (selectionChange)="selectResource($event.value)">
+          @for (item of usageCurrent()!.items; track item.resource_id) {
+            <mat-option [value]="item.resource_id">{{ item.resource_name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </section>
+
+    <section class="dash-charts">
+      <mat-card class="dash-chart-card">
+        <mat-card-header>
+          <mat-card-title>Live usage (last 15 min)</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          @if (liveChartData().length && liveChartData()[0].series.length) {
+            <div class="chart-frame">
+              <ngx-charts-line-chart
+                [results]="liveChartData()"
+                [xAxis]="true"
+                [yAxis]="true"
+                [autoScale]="true"
+                [scheme]="'cool'"
+              ></ngx-charts-line-chart>
+            </div>
+          } @else {
+            <div class="meterly-empty-state">
+              <mat-icon>timeline</mat-icon>
+              <span>Waiting for live events…</span>
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="dash-chart-card">
+        <mat-card-header>
+          <mat-card-title>Daily usage (this period)</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          @if (dailySeries().length && dailySeries()[0].series.length) {
+            <div class="chart-frame">
+              <ngx-charts-bar-vertical
+                [results]="dailySeries()"
+                [xAxis]="true"
+                [yAxis]="true"
+                [scheme]="'cool'"
+              ></ngx-charts-bar-vertical>
+            </div>
+          } @else {
+            <div class="meterly-empty-state">
+              <mat-icon>bar_chart</mat-icon>
+              <span>No usage recorded yet this period.</span>
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+    </section>
+  }
+</div>

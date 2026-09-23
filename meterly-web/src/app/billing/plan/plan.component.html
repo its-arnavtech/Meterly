@@ -1,0 +1,73 @@
+<div class="meterly-page">
+  <h1>Plan &amp; billing</h1>
+
+  @if (loading()) {
+    <div class="meterly-empty-state">
+      <mat-icon>hourglass_empty</mat-icon>
+      <span>Loading plan…</span>
+    </div>
+  } @else {
+    @if (subscription()?.current; as current) {
+      <mat-card class="current-plan-card">
+        <mat-card-header>
+          <mat-card-title>Current plan: {{ current.plan.name }}</mat-card-title>
+          <mat-card-subtitle>Since {{ current.start_date | date: 'mediumDate' }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p>{{ current.plan.base_price | money }}/month base fee, {{ current.plan.included_units | number }} included units per resource.</p>
+        </mat-card-content>
+      </mat-card>
+    }
+
+    @if (subscription()?.scheduled; as scheduled) {
+      <mat-card class="scheduled-card">
+        <mat-card-content class="scheduled-card__content">
+          <mat-icon>schedule</mat-icon>
+          <span>
+            Switching to <strong>{{ scheduled.plan.name }}</strong> on
+            {{ scheduled.start_date | date: 'mediumDate' }}.
+          </span>
+          <button mat-button color="warn" (click)="cancelScheduledChange()" [disabled]="!!changing()">
+            Cancel change
+          </button>
+        </mat-card-content>
+      </mat-card>
+    }
+
+    <h2>Available plans</h2>
+    <div class="plan-grid">
+      @for (plan of plans(); track plan.code) {
+        <mat-card class="plan-card" [class.plan-card--current]="isCurrentPlan(plan.code)">
+          <mat-card-header>
+            <mat-card-title>{{ plan.name }}</mat-card-title>
+            @if (isCurrentPlan(plan.code)) {
+              <mat-chip class="plan-card__badge">Current</mat-chip>
+            }
+          </mat-card-header>
+          <mat-card-content>
+            <p class="plan-price">{{ plan.base_price | money }}<span>/mo</span></p>
+            <p>{{ plan.included_units | number }} included units per resource</p>
+            <ul class="tier-list">
+              @for (tier of plan.tiers; track tier.from_unit) {
+                <li>
+                  {{ tier.from_unit | number }}–{{ tier.to_unit ? (tier.to_unit | number) : '∞' }}:
+                  {{ tier.unit_price | money: 'unit' }}/unit
+                </li>
+              }
+            </ul>
+          </mat-card-content>
+          <mat-card-actions>
+            <button
+              mat-flat-button
+              color="primary"
+              [disabled]="isCurrentPlan(plan.code) || !!changing()"
+              (click)="changePlan(plan.code)"
+            >
+              {{ isCurrentPlan(plan.code) ? 'Current plan' : 'Switch to this plan' }}
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      }
+    </div>
+  }
+</div>

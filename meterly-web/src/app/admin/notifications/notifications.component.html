@@ -1,0 +1,42 @@
+<div class="meterly-page">
+  <h1>Notifications</h1>
+
+  @if (loading()) {
+    <div class="meterly-empty-state">
+      <mat-icon>hourglass_empty</mat-icon>
+      <span>Loading notifications…</span>
+    </div>
+  } @else if (notifications().length === 0) {
+    <div class="meterly-empty-state">
+      <mat-icon>notifications_none</mat-icon>
+      <span>No notifications yet.</span>
+    </div>
+  } @else {
+    <table mat-table [dataSource]="notifications()" class="notifications-table">
+      <ng-container matColumnDef="type">
+        <th mat-header-cell *matHeaderCellDef>Event</th>
+        <td mat-cell *matCellDef="let n">{{ n.type }}</td>
+      </ng-container>
+      <ng-container matColumnDef="recipient">
+        <th mat-header-cell *matHeaderCellDef>Recipient</th>
+        <td mat-cell *matCellDef="let n">{{ n.recipient }}</td>
+      </ng-container>
+      <ng-container matColumnDef="subject">
+        <th mat-header-cell *matHeaderCellDef>Subject</th>
+        <td mat-cell *matCellDef="let n">{{ n.subject }}</td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let n">
+          <mat-chip [class.status-failed]="n.status === 'FAILED'">{{ n.status }}</mat-chip>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="created_at">
+        <th mat-header-cell *matHeaderCellDef>Sent</th>
+        <td mat-cell *matCellDef="let n">{{ n.created_at | date: 'medium' }}</td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+  }
+</div>

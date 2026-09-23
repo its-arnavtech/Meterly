@@ -1,0 +1,48 @@
+.current-plan-card {
+  margin-bottom: 16px;
+}
+
+.scheduled-card {
+  margin-bottom: 20px;
+  background: #fff8e1;
+}
+
+.scheduled-card__content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.plan-card--current {
+  box-shadow: 0 0 0 2px var(--mat-sys-primary, #3f51b5);
+}
+
+.plan-card__badge {
+  margin-left: auto;
+}
+
+.plan-price {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
+
+.plan-price span {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.tier-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.7);
+}
