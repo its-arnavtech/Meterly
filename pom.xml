@@ -39,7 +39,7 @@
         <!-- Newer Byte Buddy so Mockito works when tests run on JDKs newer than 21 -->
         <byte-buddy.version>1.18.14</byte-buddy.version>
         <shedlock.version>7.10.1</shedlock.version>
-        <springdoc.version>2.8.17</springdoc.version>
+        <springdoc.version>3.1.1</springdoc.version>
         <archunit.version>1.5.1</archunit.version>
         <!-- Extra JVM flags for surefire/failsafe; allows running tests on JDK > 21 locally -->
         <meterly.test.argLine>-Dnet.bytebuddy.experimental=true -XX:+EnableDynamicAgentLoading -Xshare:off</meterly.test.argLine>
