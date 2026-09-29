@@ -16,6 +16,12 @@ jobs:
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
+    # On a pull_request event, gitleaks-action calls the GitHub API to list the PR's commits (to scan
+    # exactly that commit range) and to report findings as a check; the top-level contents:read alone
+    # gets a 403 on that call and the whole action crashes before it scans anything.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
