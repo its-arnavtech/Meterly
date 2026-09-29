@@ -1,0 +1,17 @@
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.user-table {
+  width: 100%;
+  background: #fff;
+}
+
+.you-chip {
+  margin-left: 8px;
+  font-size: 0.7rem;
+  min-height: 20px;
+}

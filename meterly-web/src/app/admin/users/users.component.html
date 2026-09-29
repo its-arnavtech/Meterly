@@ -1,0 +1,67 @@
+<div class="meterly-page">
+  <header class="list-header">
+    <h1>Users</h1>
+    <button mat-flat-button color="primary" (click)="openInvite()">
+      <mat-icon>person_add</mat-icon>
+      Invite user
+    </button>
+  </header>
+
+  @if (loading()) {
+    <div class="meterly-empty-state">
+      <mat-icon>hourglass_empty</mat-icon>
+      <span>Loading users…</span>
+    </div>
+  } @else {
+    <table mat-table [dataSource]="users()" class="user-table">
+      <ng-container matColumnDef="email">
+        <th mat-header-cell *matHeaderCellDef>Email</th>
+        <td mat-cell *matCellDef="let u">
+          {{ u.email }}
+          @if (isSelf(u)) {
+            <mat-chip class="you-chip">You</mat-chip>
+          }
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="role">
+        <th mat-header-cell *matHeaderCellDef>Role</th>
+        <td mat-cell *matCellDef="let u">
+          <mat-select
+            [value]="u.role"
+            [disabled]="isSelf(u) || savingId() === u.id"
+            (selectionChange)="changeRole(u, $event.value)"
+            [attr.aria-label]="'Change role for ' + u.email"
+          >
+            @for (role of roles; track role) {
+              <mat-option [value]="role">{{ role }}</mat-option>
+            }
+          </mat-select>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let u">{{ u.status }}</td>
+      </ng-container>
+      <ng-container matColumnDef="created_at">
+        <th mat-header-cell *matHeaderCellDef>Joined</th>
+        <td mat-cell *matCellDef="let u">{{ u.created_at | date: 'mediumDate' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let u">
+          <button
+            mat-button
+            [color]="u.status === 'ACTIVE' ? 'warn' : 'primary'"
+            [disabled]="isSelf(u) || savingId() === u.id"
+            (click)="toggleStatus(u)"
+            [matTooltip]="isSelf(u) ? 'You cannot modify your own account' : ''"
+          >
+            {{ u.status === 'ACTIVE' ? 'Disable' : 'Enable' }}
+          </button>
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+  }
+</div>

@@ -14,7 +14,7 @@ or double anywhere in the billing domain."*
 - `java.math.BigDecimal` is exact decimal arithmetic in the standard library, with explicit
   `RoundingMode.HALF_EVEN` (banker's rounding). No third-party decimal library, no configuration.
 - Static typing makes the rule *enforceable*, not just a convention: billing's domain types
-  (`Money`, `TierCharge`, `InvoiceDraft`) are records whose components are `BigDecimal`. You cannot
+  (`PlanPricing`, `Tier`, `LineItem`, `InvoiceDraft`) are records whose money components are `BigDecimal`. You cannot
   pass a `double` where a `BigDecimal` is expected — the compiler rejects it.
 - An **ArchUnit** test in billing-service fails the build if any class in the billing domain declares a
   `float`/`double` field, parameter or return type. The rule is checked on every CI run.

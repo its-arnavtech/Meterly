@@ -1,0 +1,43 @@
+# PodDisruptionBudgets so a voluntary disruption (node drain, cluster upgrade) never takes every
+# replica of a service down at once. All base Deployments run 2 replicas; keep at least 1 available.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: tenant-service, namespace: meterly}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app.kubernetes.io/name: tenant-service}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: ingestion-service, namespace: meterly}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app.kubernetes.io/name: ingestion-service}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: metering-service, namespace: meterly}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app.kubernetes.io/name: metering-service}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: billing-service, namespace: meterly}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app.kubernetes.io/name: billing-service}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: notification-service, namespace: meterly}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app.kubernetes.io/name: notification-service}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: web, namespace: meterly}
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app.kubernetes.io/name: web}}

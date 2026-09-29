@@ -1,0 +1,17 @@
+# Custom prometheus-community/postgres_exporter queries. The exporter connects as meterly_owner
+# (the schema/table owner), the one role RLS does not apply to (see deploy/postgres/initdb/01-roles.sh),
+# so this single global count can see every tenant's outbox rows without a tenant session bound.
+# This is a read-only monitoring credential; it is never used by application services.
+outbox_backlog:
+  query: |
+    SELECT
+      count(*) FILTER (WHERE published_at IS NULL)     AS pending,
+      count(*) FILTER (WHERE published_at IS NOT NULL)  AS published
+    FROM outbox_event
+  metrics:
+    - pending:
+        usage: "GAUGE"
+        description: "outbox_event rows not yet published, across all tenants"
+    - published:
+        usage: "GAUGE"
+        description: "outbox_event rows published so far, across all tenants (lifetime count, not a rate)"

@@ -1,0 +1,80 @@
+<div class="auth-page">
+  <mat-card class="auth-card">
+    <mat-card-header>
+      <mat-card-title>Create your Meterly account</mat-card-title>
+      <mat-card-subtitle>Sets up your tenant and a TENANT_ADMIN user</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <mat-form-field appearance="outline" class="auth-field">
+          <mat-label>Organization name</mat-label>
+          <input matInput formControlName="tenant_name" autocomplete="organization" required />
+          @if (fieldErrors['tenant_name']; as msg) {
+            <mat-error>{{ msg }}</mat-error>
+          } @else if (form.controls.tenant_name.hasError('required') && form.controls.tenant_name.touched) {
+            <mat-error>Organization name is required.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="auth-field">
+          <mat-label>Admin email</mat-label>
+          <input matInput type="email" formControlName="admin_email" autocomplete="email" required />
+          @if (fieldErrors['admin_email']; as msg) {
+            <mat-error>{{ msg }}</mat-error>
+          } @else if (form.controls.admin_email.hasError('email') && form.controls.admin_email.touched) {
+            <mat-error>Enter a valid email address.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="auth-field">
+          <mat-label>Admin password</mat-label>
+          <input matInput type="password" formControlName="admin_password" autocomplete="new-password" required />
+          <mat-hint>10–72 characters.</mat-hint>
+          @if (fieldErrors['admin_password']; as msg) {
+            <mat-error>{{ msg }}</mat-error>
+          } @else if (form.controls.admin_password.hasError('minlength') && form.controls.admin_password.touched) {
+            <mat-error>Use at least 10 characters.</mat-error>
+          }
+        </mat-form-field>
+
+        <p class="auth-plan-label">Plan</p>
+        <mat-radio-group formControlName="plan_code" class="auth-plan-group" aria-label="Plan">
+          @for (plan of plans(); track plan.code) {
+            <div class="auth-plan-option">
+              <mat-radio-button [value]="plan.code">
+                <strong>{{ plan.name }}</strong> — {{ plan.base_price | money }}/mo,
+                {{ plan.included_units | number }} included units
+              </mat-radio-button>
+              <ul class="auth-tier-list">
+                @for (tier of plan.tiers; track tier.from_unit) {
+                  <li>
+                    {{ tier.from_unit | number }}–{{ tier.to_unit ? (tier.to_unit | number) : '∞' }}:
+                    {{ tier.unit_price | money: 'unit' }}/unit
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        </mat-radio-group>
+
+        @if (errorMessage()) {
+          <p class="auth-error" role="alert">{{ errorMessage() }}</p>
+        }
+
+        <button mat-flat-button color="primary" class="auth-submit" type="submit" [disabled]="loading()">
+          @if (loading()) {
+            <mat-spinner diameter="20" class="auth-spinner"></mat-spinner>
+          } @else {
+            Create account
+          }
+        </button>
+      </form>
+    </mat-card-content>
+
+    <mat-card-actions>
+      <span>Already have an account?</span>
+      <a mat-button color="accent" routerLink="/login">Sign in</a>
+    </mat-card-actions>
+  </mat-card>
+</div>

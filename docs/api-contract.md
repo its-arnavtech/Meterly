@@ -160,7 +160,11 @@ Auth: `X-API-Key` **or** user JWT with `TENANT_ADMIN`. The tenant always comes f
 
 ### Kafka consumer
 Consumer group `metering-service` on `usage-events`. For each record, inside one transaction bound to the record's tenant:
-`INSERT INTO usage_event … ON CONFLICT (tenant_id, idempotency_key) DO NOTHING RETURNING id`. Only if a row was inserted: after commit, `INCRBY` the Redis counter for the event's period (`RedisKeys.usageCounter`, TTL 70d) and publish a `UsageUpdate` to Redis channel `meterly:usage-updates`. Every instance subscribes to that channel and forwards to its local STOMP subscribers (so a browser connected to any instance gets every update).
+1. take a transaction-scoped advisory lock for (tenant, resource, period) so projection versions follow commit order;
+2. `INSERT INTO usage_event … ON CONFLICT (tenant_id, idempotency_key) DO NOTHING RETURNING id`;
+3. only if a row was inserted: upsert the transactional projection `usage_counter_state` (`total_units += quantity`, `ledger_version = usage_event.id`) and evaluate usage thresholds (below) — all in the same transaction as the ledger row.
+
+After COMMIT, project the snapshot into Redis (`RedisKeys.usageCounter`, plus a `:version` key, TTL 70d) with a Lua script that only overwrites when the new `ledger_version` is higher (a late or replayed projection can never move a counter backwards), and publish a `UsageUpdate` on Redis channel `meterly:usage-updates`. A duplicate (conflict) never changes any total; it may re-project the existing snapshot (idempotent), which also repairs a projection lost to a crash between commit and Redis write. Every instance subscribes to the channel and forwards to its local STOMP subscribers, so a browser connected to any instance gets every update.
 Non-retryable failures (deserialization, validation, FK violation = unknown/foreign resource) → `usage-events.DLT`. Transient failures → exponential backoff retries.
 
 ### GET /v1/usage/current — any role
@@ -170,7 +174,7 @@ Non-retryable failures (deserialization, validation, FK violation = unknown/fore
   "items": [ { "resource_id", "resource_name": "API calls", "unit_label": "call", "total_units": 4200,
                "included_units": 10000, "percent_of_included": 42.0 } ] }
 ```
-Reads Redis counters; on a missing key recomputes from the Postgres ledger and re-seeds Redis (`SET NX`). All active resources are listed (0 when no usage).
+Reads Redis; on a miss falls back to `usage_counter_state` (then to a ledger `SUM` if no projection row exists) and re-seeds Redis through the same version-guarded script. All active resources are listed (0 when no usage).
 
 ### GET /v1/usage/timeseries?resource_id=…&granularity=hour|day&from=…&to=… — any role
 Defaults: current period, `day`. Max range 93 days (hour granularity: max 7 days). From the ledger (source of truth).
@@ -190,10 +194,10 @@ Defaults: current period, `day`. Max range 93 days (hour granularity: max 7 days
 - Server heartbeats 10s/10s.
 
 ### Usage thresholds
-When a resource's open-period counter crosses 80% and 100% of the plan's included units, emit `UsageThresholdCrossed` to `notification-events` once per (tenant, resource, period, threshold) — guarded by `RedisKeys.thresholdMarker` `SET NX`.
+When a resource's open-period total crosses 80% and 100% of the plan's included units, emit `UsageThresholdCrossed` exactly once per (tenant, resource, period, threshold): inside the ingest transaction insert into `usage_threshold` (`ON CONFLICT DO NOTHING`) and, if inserted, write the event to `outbox_event`. metering-service runs its own outbox relay for `event_type = 'usage.threshold_crossed'` (ShedLock `metering-outbox-relay`). (`RedisKeys.thresholdMarker` is no longer used.)
 
 ### Reconciliation
-Nightly (03:00 UTC, ShedLock `metering-reconciliation`) and via `POST /internal/v1/reconciliation/run`: for each active tenant, re-sum the ledger for the open period per resource, compare with Redis, correct drift, log WARN and increment `meterly_reconciliation_drift_total`. Response `{ "tenants_checked", "counters_checked", "counters_corrected" }`.
+Nightly (03:00 UTC, ShedLock `metering-reconciliation`) and via `POST /internal/v1/reconciliation/run`: for each active tenant (one transaction per tenant), re-sum the ledger for the open period per resource under the projection lock, correct `usage_counter_state` and Redis when either drifted, log WARN and increment `meterly.reconciliation.drift`. Response `{ "tenants_checked", "counters_checked", "counters_corrected" }`.
 
 ---
 
@@ -210,6 +214,8 @@ Algorithm (one transaction, tenant-bound, advisory-locked per tenant+period):
 3. Price per resource: included units free; each tier `units × unit_price` → amount rounded **once**, `HALF_EVEN` to 2 decimals at the line item. Base fee line once. Total = sum of rounded line amounts.
 4. `INSERT … ON CONFLICT (tenant_id, period_start) DO NOTHING`; if nothing inserted, return the existing invoice.
 5. Write `InvoiceIssued` to `outbox_event` in the same transaction.
+
+Invoices snapshot `plan_code` and `plan_name` (V30) so a later catalog rename never changes an issued invoice.
 
 ### GET /v1/invoices — admin
 ```json
@@ -238,7 +244,7 @@ Cron `0 0 2 1 * *` UTC (`meterly.billing.close-cron`), ShedLock `billing-period-
 Internal: `POST /internal/v1/billing/run-all` `{ "period_start"? }` → `{ "period_start", "created", "already_invoiced", "skipped_no_subscription", "failed" }`.
 
 ### Outbox relay
-Every 2s (ShedLock `billing-outbox-relay`): publish unpublished `outbox_event` rows to their topic (key = tenant_id), mark `published_at`. At-least-once; consumers dedupe by `event_id`.
+Every 2s (ShedLock `billing-outbox-relay`): publish unpublished `outbox_event` rows **whose `event_type` is `invoice.issued`** to their topic (key = tenant_id), mark `published_at`. Each service relays only the event types it owns, so relays never race on the same rows. At-least-once; consumers dedupe by `event_id`.
 
 ---
 
@@ -277,6 +283,26 @@ Services connect as `meterly_app` (RLS enforced) and never run DDL. **New migrat
 | notification-service | V40–V49 |
 | platform | V50–V59 |
 
+Tables added after the foundation: `usage_counter_state`, `usage_threshold` (V20); invoice `plan_code`/`plan_name` (V30); notification delivery status (V40); refresh-token/subscription indexes (V10).
+
 Any new table must get `tenant_id`, RLS (`ENABLE ROW LEVEL SECURITY` + `tenant_isolation` policy) and grants to `${appRole}` in the same migration.
 
 All tenant-scoped SQL must run inside a transaction (`@Transactional` / `TransactionTemplate`) with `TenantContext` bound — the `TenantAwareTransactionManager` binds `app.tenant_id` at `BEGIN`. Outside a request (Kafka listeners, schedulers) use `TenantContext.runAs(tenantId, () -> tx.execute(...))`, one transaction per tenant.
+
+## 9. Validation bar (release evidence)
+
+The `meterly-validation` harness must demonstrate, against the full Docker Compose stack, and record the
+results plus the environment (CPU, RAM, OS, Docker resources) in a report:
+
+1. **Three organizations** active at once (the two demo tenants plus at least one tenant created through
+   `POST /v1/tenants`), with PostgreSQL 16 RLS proven by querying as `meterly_app` without a tenant filter.
+2. **Idempotent metering:** 950 unique usage events plus 50 client retries (duplicate idempotency keys) plus
+   50 Kafka redeliveries (identical records produced directly to the topic) → exactly 950 ledger rows and the
+   matching counter.
+3. **Cent-accurate billing**, independently recomputed by the harness from `GET /v1/plans` and the known usage,
+   for each organization; a re-run returns the same invoice (idempotent).
+4. **Per-tenant rate limits:** a burst beyond the bucket gets `429` + `Retry-After` for that tenant only,
+   while another tenant is unaffected; the client recovers after waiting.
+5. **Live STOMP latency:** at least 50 trials from ingestion response to STOMP message; report p50/p95/p99/max.
+   Pass: p95 < 850 ms, and the POC bar (≥ 18 of 20 within 2 s). Report the distribution; never claim an
+   unconditional guarantee.

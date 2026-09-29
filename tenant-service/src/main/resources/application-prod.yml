@@ -3,3 +3,16 @@ logging:
   structured:
     format:
       console: ecs
+spring:
+  datasource:
+    password: ${DB_PASSWORD}
+meterly:
+  tenant:
+    jwt:
+      # Required in production: startup fails without a configured signing key.
+      private-key-path: ${JWT_PRIVATE_KEY_PATH}
+      allow-ephemeral-key: false
+  auth:
+    refresh-cookie-secure: true
+  security:
+    internal-token: ${INTERNAL_TOKEN}

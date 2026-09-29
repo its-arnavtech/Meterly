@@ -21,6 +21,15 @@ spring:
     enabled: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+        max.block.ms: 5000
 
 management:
   endpoints:
@@ -35,6 +44,10 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      # Histogram buckets so Prometheus can compute p95/p99 with histogram_quantile().
+      percentiles-histogram:
+        "[http.server.requests]": true
 
 springdoc:
   api-docs:
@@ -51,3 +64,11 @@ meterly:
     internal-token: ${INTERNAL_TOKEN:dev-internal-token-change-me}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8080}
+
+  billing:
+    close-cron: ${BILLING_CLOSE_CRON:0 0 2 1 * *}
+    scheduling-enabled: ${BILLING_SCHEDULING_ENABLED:true}
+    outbox:
+      relay-interval: ${BILLING_OUTBOX_RELAY_INTERVAL:PT2S}
+      batch-size: ${BILLING_OUTBOX_BATCH_SIZE:100}
+      send-timeout: ${BILLING_OUTBOX_SEND_TIMEOUT:PT15S}

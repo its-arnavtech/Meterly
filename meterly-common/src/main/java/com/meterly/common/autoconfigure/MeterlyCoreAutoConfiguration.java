@@ -29,6 +29,13 @@ import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 public class MeterlyCoreAutoConfiguration {
 
     @Bean
+    @org.springframework.context.annotation.Profile("prod")
+    public ProductionConfigurationGuard productionConfigurationGuard(MeterlyProperties properties,
+            org.springframework.core.env.Environment environment) {
+        return new ProductionConfigurationGuard(properties, environment);
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     public Clock clock() {
         return Clock.systemUTC();

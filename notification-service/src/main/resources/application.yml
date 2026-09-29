@@ -21,6 +21,24 @@ spring:
     enabled: false
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:19092}
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    properties:
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
 
 management:
   endpoints:
@@ -35,6 +53,10 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      # Histogram buckets so Prometheus can compute p95/p99 with histogram_quantile().
+      percentiles-histogram:
+        "[http.server.requests]": true
 
 springdoc:
   api-docs:
@@ -43,6 +65,10 @@ springdoc:
     enabled: ${SWAGGER_UI_ENABLED:false}
 
 meterly:
+  notification:
+    email:
+      provider: ${EMAIL_PROVIDER:logging}
+      from: ${EMAIL_FROM:billing@meterly.local}
   security:
     jwt:
       jwks-uri: ${JWT_JWKS_URI:http://localhost:8081/.well-known/jwks.json}

@@ -1,0 +1,56 @@
+<div class="meterly-page">
+  <header class="list-header">
+    <h1>API keys</h1>
+    <button mat-flat-button color="primary" (click)="openCreate()">
+      <mat-icon>add</mat-icon>
+      New key
+    </button>
+  </header>
+
+  @if (loading()) {
+    <div class="meterly-empty-state">
+      <mat-icon>hourglass_empty</mat-icon>
+      <span>Loading API keys…</span>
+    </div>
+  } @else if (keys().length === 0) {
+    <div class="meterly-empty-state">
+      <mat-icon>vpn_key</mat-icon>
+      <span>No API keys yet. Machine clients use one to call POST /v1/usage-events.</span>
+    </div>
+  } @else {
+    <table mat-table [dataSource]="keys()" class="key-table">
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Name</th>
+        <td mat-cell *matCellDef="let k">{{ k.name }}</td>
+      </ng-container>
+      <ng-container matColumnDef="prefix">
+        <th mat-header-cell *matHeaderCellDef>Prefix</th>
+        <td mat-cell *matCellDef="let k"><code>{{ k.prefix }}…</code></td>
+      </ng-container>
+      <ng-container matColumnDef="created_at">
+        <th mat-header-cell *matHeaderCellDef>Created</th>
+        <td mat-cell *matCellDef="let k">{{ k.created_at | date: 'mediumDate' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="last_used_at">
+        <th mat-header-cell *matHeaderCellDef>Last used</th>
+        <td mat-cell *matCellDef="let k">{{ k.last_used_at ? (k.last_used_at | date: 'medium') : 'Never' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let k">{{ k.revoked_at ? 'Revoked' : 'Active' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let k">
+          @if (!k.revoked_at) {
+            <button mat-button color="warn" (click)="revoke(k)" [attr.aria-label]="'Revoke ' + k.name">
+              Revoke
+            </button>
+          }
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+  }
+</div>

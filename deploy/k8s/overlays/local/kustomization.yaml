@@ -1,0 +1,51 @@
+# Local kind/minikube overlay. Shrinks replicas/resources to fit a laptop-sized cluster, points Ingress
+# at a local hostname, and applies the EXAMPLE secret (see base/secret.example.yaml) so the stack can
+# actually start end to end without a real secret manager. Bring up infra + images first (this overlay
+# does not deploy PostgreSQL/Redis/Kafka; see docs/operations.md for a local Strimzi/Bitnami option, or
+# just point meterly-shared-config's DB_URL/REDIS_HOST/KAFKA_BOOTSTRAP_SERVERS at the Compose stack's
+# host-published ports via host.docker.internal on kind).
+#
+#   kubectl apply -k deploy/k8s/overlays/local
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: meterly
+
+resources:
+  - ../../base
+
+patches:
+  - target: {kind: Deployment}
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target: {kind: HorizontalPodAutoscaler}
+    patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target: {kind: Ingress, name: meterly-web}
+    patch: |
+      - op: replace
+        path: /spec/rules/0/host
+        value: meterly.local
+      - op: remove
+        path: /spec/ingressClassName
+  - target: {kind: ConfigMap, name: meterly-shared-config}
+    patch: |
+      - op: replace
+        path: /data/CORS_ALLOWED_ORIGINS
+        value: http://meterly.local
+
+images:
+  - {name: meterly/tenant-service, newTag: local}
+  - {name: meterly/ingestion-service, newTag: local}
+  - {name: meterly/metering-service, newTag: local}
+  - {name: meterly/billing-service, newTag: local}
+  - {name: meterly/notification-service, newTag: local}
+  - {name: meterly/migrator, newTag: local}
+  - {name: meterly/web, newTag: local}

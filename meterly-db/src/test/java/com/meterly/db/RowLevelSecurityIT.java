@@ -156,8 +156,9 @@ class RowLevelSecurityIT {
     @Test
     void invoicePerTenantPeriodIsUnique() {
         UUID plan = UUID.fromString("0a000000-0000-4000-8000-000000000001");
-        String insert = "INSERT INTO invoice (tenant_id, invoice_number, plan_id, period_start, period_end, total_amount) "
-                + "VALUES (?, ?, ?, DATE '2026-08-01', DATE '2026-09-01', 19.00) ON CONFLICT (tenant_id, period_start) DO NOTHING";
+        String insert = "INSERT INTO invoice (tenant_id, invoice_number, plan_id, plan_code, plan_name, period_start, period_end, total_amount) "
+                + "VALUES (?, ?, ?, 'STARTER', 'Starter', DATE '2026-08-01', DATE '2026-09-01', 19.00) "
+                + "ON CONFLICT (tenant_id, period_start) DO NOTHING";
         int first = TenantContext.callAs(TENANT_A, () -> tx.execute(s ->
                 jdbc.sql(insert).params(TENANT_A, "INV-T-1", plan).update()));
         int rerun = TenantContext.callAs(TENANT_A, () -> tx.execute(s ->

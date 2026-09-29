@@ -1,0 +1,98 @@
+@use '@angular/material' as mat;
+@import '@fontsource/roboto/300.css';
+@import '@fontsource/roboto/400.css';
+@import '@fontsource/roboto/500.css';
+@import 'material-icons/iconfont/material-icons.css';
+
+@include mat.core();
+
+$meterly-theme: mat.define-theme(
+  (
+    color: (
+      theme-type: light,
+      primary: mat.$azure-palette,
+      tertiary: mat.$violet-palette
+    ),
+    typography: (
+      brand-family: 'Roboto, sans-serif'
+    ),
+    density: (
+      scale: 0
+    )
+  )
+);
+
+html {
+  @include mat.all-component-themes($meterly-theme);
+}
+
+:root {
+  --meterly-danger: #c62828;
+  --meterly-warning: #ef6c00;
+  --meterly-ok: #2e7d32;
+  --meterly-border: rgba(0, 0, 0, 0.12);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #f4f6f8;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+a {
+  color: inherit;
+}
+
+.meterly-snackbar-error {
+  --mdc-snackbar-container-color: #c62828;
+  --mdc-snackbar-supporting-text-color: #fff;
+  --mat-snack-bar-button-color: #fff;
+}
+
+.meterly-snackbar-info {
+  --mdc-snackbar-container-color: #323232;
+  --mdc-snackbar-supporting-text-color: #fff;
+}
+
+.meterly-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.meterly-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 16px;
+  color: rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+
+@media (max-width: 599px) {
+  .meterly-page {
+    padding: 12px;
+  }
+}
+
+@media print {
+  app-shell nav,
+  app-shell mat-toolbar,
+  .meterly-no-print {
+    display: none !important;
+  }
+}

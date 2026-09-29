@@ -6,6 +6,7 @@ import com.meterly.common.security.MeterlyJwtAuthenticationConverter;
 import com.meterly.common.security.ProblemDetailsSecurityHandlers;
 import com.meterly.common.tenant.TenantContextAspect;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -69,9 +70,24 @@ public class MeterlySecurityAutoConfiguration {
         OAuth2TokenValidator<Jwt> audienceValidator = new JwtClaimValidator<List<String>>(
                 "aud", aud -> aud != null && aud.contains(audience));
         OAuth2TokenValidator<Jwt> tenantClaimPresent = new JwtClaimValidator<String>(
-                "tenant_id", value -> value != null && !value.isBlank());
+                "tenant_id", MeterlySecurityAutoConfiguration::isUuid);
+        OAuth2TokenValidator<Jwt> subjectValid = new JwtClaimValidator<String>(
+                "sub", MeterlySecurityAutoConfiguration::isUuid);
+        OAuth2TokenValidator<Jwt> roleValid = new JwtClaimValidator<String>(
+                "role", value -> "TENANT_ADMIN".equals(value) || "TENANT_USER".equals(value));
+        OAuth2TokenValidator<Jwt> expiryPresent = new JwtClaimValidator<Object>("exp", value -> value != null);
         return new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(issuer), audienceValidator, tenantClaimPresent);
+                JwtValidators.createDefaultWithIssuer(issuer), audienceValidator, tenantClaimPresent,
+                subjectValid, roleValid, expiryPresent);
+    }
+
+    private static boolean isUuid(String value) {
+        if (value == null) return false;
+        try {
+            return UUID.fromString(value).toString().equalsIgnoreCase(value);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     @Configuration(proxyBeanMethods = false)

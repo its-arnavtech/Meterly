@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    # On a pull_request event, gitleaks-action calls the GitHub API to list the PR's commits (to scan
+    # exactly that commit range) and to report findings as a check; the top-level contents:read alone
+    # gets a 403 on that call and the whole action crashes before it scans anything.
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  backend:
+    name: Backend (Maven verify)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Temurin 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # Testcontainers needs a Docker daemon; ubuntu-latest runners ship one preinstalled.
+      - name: Verify (unit tests, ArchUnit, Testcontainers integration tests)
+        run: ./mvnw -B -ntp verify
+      - name: Upload surefire/failsafe reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
+          retention-days: 7
+          if-no-files-found: ignore
+
+  frontend:
+    name: Frontend (Angular)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: meterly-web
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: meterly-web/package-lock.json
+      - run: npm ci
+      # meterly-web/package.json (owned by the web branch) does not define a "test:ci" script yet;
+      # this invokes the same karma/Chrome-headless run the CI bar requires without editing that module.
+      - name: Unit tests (headless Chrome)
+        run: npx ng test --no-watch --no-progress --browsers=ChromeHeadless
+      - name: Build (production)
+        run: npm run build
+
+  docker:
+    name: Build image (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: tenant-service
+            dockerfile: Dockerfile
+            target: tenant-service
+          - image: ingestion-service
+            dockerfile: Dockerfile
+            target: ingestion-service
+          - image: metering-service
+            dockerfile: Dockerfile
+            target: metering-service
+          - image: billing-service
+            dockerfile: Dockerfile
+            target: billing-service
+          - image: notification-service
+            dockerfile: Dockerfile
+            target: notification-service
+          - image: migrator
+            dockerfile: Dockerfile
+            target: migrator
+          - image: web
+            dockerfile: deploy/web.Dockerfile
+            target: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.image }} (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          push: false
+          tags: meterly/${{ matrix.image }}:ci
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}

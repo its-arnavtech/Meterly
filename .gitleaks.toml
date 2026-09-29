@@ -1,0 +1,19 @@
+# gitleaks config for Meterly. Extends (does not replace) the default ruleset.
+#
+# docs/Meterly_PDD.txt is a one-time, static plain-text extraction of the source PDD .docx, committed as
+# project documentation and never legitimately a place to add credentials. The default generic-api-key
+# rule false-positives on ordinary prose in it ("Kubernetes manifests, Keycloak, Prometheus/Grafana
+# observability, notification-service", entropy 3.68 — far below anything resembling a real key).
+#
+# (Earlier attempt used a top-level `fingerprints` allowlist key, which does not exist in gitleaks'
+# Allowlist struct — silently ignored, so nothing was actually suppressed. `paths` is the field gitleaks'
+# own upstream .gitleaks.toml uses for exactly this kind of allowlist.)
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Static plain-text PDD extract: prose false-positives, not credentials"
+paths = [
+    '''^docs/Meterly_PDD\.txt$''',
+]

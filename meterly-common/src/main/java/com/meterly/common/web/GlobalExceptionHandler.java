@@ -52,7 +52,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DuplicateKeyException.class)
     public ResponseEntity<ProblemDetail> handleDuplicate(DuplicateKeyException ex, HttpServletRequest request) {
-        log.info("Unique constraint violation: {}", ex.getMostSpecificCause().getMessage());
+        log.info("Unique constraint violation");
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ProblemDetails.of(HttpStatus.CONFLICT, "CONFLICT",
                 "The resource conflicts with an existing one", request.getRequestURI()));
     }
@@ -74,7 +74,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex, HttpServletRequest request) {
-        log.error("Unhandled exception on {} {}", request.getMethod(), request.getRequestURI(), ex);
+        // SQL and provider exception messages can contain row contents or credentials, so only the
+        // exception types and stack frames are logged: enough to locate the bug, nothing from the data.
+        log.error("Unhandled exception on {} {}:{}", request.getMethod(), request.getRequestURI(),
+                RedactedStackTrace.of(ex));
         return ResponseEntity.internalServerError().body(ProblemDetails.of(HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTERNAL_ERROR", "An unexpected error occurred", request.getRequestURI()));
     }

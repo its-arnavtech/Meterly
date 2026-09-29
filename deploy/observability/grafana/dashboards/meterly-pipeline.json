@@ -1,0 +1,107 @@
+{
+  "uid": "meterly-pipeline",
+  "title": "Meterly - Usage & Billing Pipeline",
+  "tags": ["meterly"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {"from": "now-30m", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Ingestion events by outcome (HTTP status)",
+      "description": "202/200=accepted/duplicate, 409=idempotency key reuse, 422=validation, 429=rate limited",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "targets": [
+        {"expr": "sum by (status) (rate(http_server_requests_seconds_count{service=\"ingestion-service\", uri=\"/v1/usage-events\"}[$__rate_interval]))", "legendFormat": "{{status}}"}
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Requests rate-limited (429) per service",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "targets": [
+        {"expr": "sum by (service) (rate(http_server_requests_seconds_count{status=\"429\"}[$__rate_interval]))", "legendFormat": "{{service}}"}
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Metering: ledger inserts vs duplicates",
+      "description": "meterly_usage_events_total{outcome=recorded|duplicate}",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "targets": [
+        {"expr": "sum by (outcome) (rate(meterly_usage_events_total[$__rate_interval]))", "legendFormat": "{{outcome}}"}
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Notification dead-lettered events",
+      "description": "meterly_notification_dlt_total{reason}. metering-service's usage-events.DLT has no dedicated counter yet; inspect it with rpk (see docs/operations.md).",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "targets": [
+        {"expr": "sum by (reason) (rate(meterly_notification_dlt_total[$__rate_interval]))", "legendFormat": "{{reason}}"}
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Billing runs by outcome",
+      "description": "meterly_billing_runs_total{outcome=created|already_invoiced|skipped_no_subscription|failed}",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "targets": [
+        {"expr": "sum by (outcome) (rate(meterly_billing_runs_total[$__rate_interval]))", "legendFormat": "{{outcome}}"}
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Outbox events published",
+      "description": "meterly_outbox_published_total (billing relay; metering relay emits the same metric name once implemented)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "targets": [
+        {"expr": "sum(rate(meterly_outbox_published_total[$__rate_interval]))", "legendFormat": "published/s"}
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Outbox backlog (unpublished rows)",
+      "description": "postgres_exporter custom query, table owner connection (RLS-exempt) - see deploy/observability/postgres-exporter/queries.yaml",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "targets": [
+        {"expr": "pg_outbox_backlog_pending", "legendFormat": "pending"}
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Reconciliation drift corrections",
+      "description": "meterly_reconciliation_drift_total: counters repaired by the nightly/on-demand reconciliation job",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "targets": [
+        {"expr": "sum(rate(meterly_reconciliation_drift_total[$__rate_interval]))", "legendFormat": "drift/s"}
+      ]
+    }
+  ]
+}
