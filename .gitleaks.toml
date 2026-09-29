@@ -1,0 +1,18 @@
+# gitleaks config for Meterly. Extends (does not replace) the default ruleset.
+#
+# Known false positives, allowlisted by their exact commit+file+rule+line fingerprint (scoped to one
+# historical commit, so this can never mask a real secret introduced later in the same file):
+#
+#   docs/Meterly_PDD.txt:184 (generic-api-key) — plain prose from the source PDD ("Kubernetes manifests,
+#   Keycloak, Prometheus/Grafana observability, notification-service"), not a credential. Confirmed by its
+#   entropy (3.68, well below anything resembling a real key) and by reading the line itself.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Confirmed false positives, allowlisted per commit"
+regexTarget = "match"
+fingerprints = [
+    "9c515c9a2ce0e30db19ca6be5ed1079514f10ec0:docs/Meterly_PDD.txt:generic-api-key:184",
+]
