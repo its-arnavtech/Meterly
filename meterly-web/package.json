@@ -19,7 +19,7 @@
     "@angular/forms": "~18.2.14",
     "@angular/material": "~18.2.14",
     "@angular/platform-browser": "~18.2.14",
-    "@angular/platform-browser-dynamic": "~18.2.14",
+    "@angular/platform-browser-dynamic": "~22.2.1",
     "@angular/router": "~18.2.14",
     "@fontsource/roboto": "^5.3.0",
     "@stomp/stompjs": "~7.3.0",
