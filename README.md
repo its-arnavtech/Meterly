@@ -1,16 +1,15 @@
 # Meterly
 
-Meterly is a multi-tenant SaaS billing & usage-metering platform: tenants ingest metered usage events
-(API calls, webhook deliveries, anything countable), watch a live dashboard update in real time, and
-get a cent-accurate tiered invoice at the end of each month. It exists as a portfolio-scale
-demonstration of the hard parts of that problem done properly: PostgreSQL Row-Level Security for
-tenant isolation, exactly-once counting under client retries and Kafka redelivery, `BigDecimal`
-billing math with a single documented rounding rule, and a black-box harness that proves all of it
-against a live stack rather than asserting it in prose.
+Meterly is a multi-tenant SaaS billing and usage-metering platform. Tenants send metered usage events (API calls, webhook deliveries, anything countable), watch a live dashboard update in real time, and get a cent-accurate tiered invoice at the end of each month.
 
-**Why Java** for the backend, tooling and the exit-criteria harness (not just "because Spring Boot"):
-see [`docs/why-java.md`](docs/why-java.md). The only non-Java code is the Angular SPA and
-infrastructure configuration.
+I built it as a portfolio project to work through the hard parts of usage billing and do them properly:
+
+- PostgreSQL Row-Level Security (RLS) for tenant isolation
+- exactly-once counting under client retries and Kafka redelivery
+- `BigDecimal` billing math with a single documented rounding rule
+- a black-box harness that proves all of this against a live stack, instead of just claiming it in the docs
+
+I wrote the backend, the tooling and the validation harness in Java. I explain why (it was not just "because Spring Boot") in [`docs/why-java.md`](docs/why-java.md). The only non-Java code is the Angular SPA and the infrastructure configuration.
 
 ## Architecture
 
@@ -45,38 +44,47 @@ flowchart LR
     METER -. STOMP over WebSocket .-> SPA
 ```
 
-End-to-end flow, RLS design, idempotency at every hop and what's explicitly deferred are in
-[`docs/architecture.md`](docs/architecture.md).
+The end-to-end flow, the RLS design, idempotency at every hop, and what I deferred on purpose are written up in [`docs/architecture.md`](docs/architecture.md).
 
-## Services
+### Services
 
-| Service | Port | Responsibility |
+| Service | Port | What it does |
 |---|---|---|
-| `tenant-service` | 8081 | Tenants, users, JWT issuance + JWKS, plans, subscriptions, resources, API keys |
+| `tenant-service` | 8081 | Tenants, users, JWT issuance and JWKS, plans, subscriptions, resources, API keys |
 | `ingestion-service` | 8082 | Usage-event intake: API-key/JWT auth, per-tenant rate limiting, idempotency, Kafka publish |
 | `metering-service` | 8083 | Idempotent usage ledger, Redis counters, live STOMP dashboard updates, reconciliation |
 | `billing-service` | 8084 | Period-close billing, tiered `BigDecimal` pricing, idempotent invoices, outbox relay |
-| `notification-service` | 8085 | Invoice/threshold email notifications (pluggable provider; logging or SMTP/Mailpit) |
+| `notification-service` | 8085 | Invoice and threshold email notifications (pluggable provider: logging or SMTP/Mailpit) |
 | `meterly-web` | 8080 | Angular SPA behind nginx, reverse-proxies `/v1/**` and `/ws/usage` to the services above |
-| `meterly-db` (migrator) | — | One-shot Flyway migration Job/container; the only role that ever runs DDL |
-| `meterly-validation` | — | Black-box exit-criteria harness + load generator (this doc, §"Validation harness") |
+| `meterly-db` (migrator) | n/a | One-shot Flyway migration Job/container. It is the only role that ever runs DDL |
+| `meterly-validation` | n/a | Black-box validation harness and load generator (see "Validation harness" below) |
 
-Infrastructure: PostgreSQL 16 (RLS), Redis 7 (cache + rate limiter + pub/sub), Redpanda (Kafka-API
-compatible; see [`docs/architecture.md`](docs/architecture.md) for why), Mailpit (SMTP sink for local
-email).
+Infrastructure: PostgreSQL 16 (RLS), Redis 7 (cache, rate limiter, pub/sub), Redpanda (Kafka-API compatible; I explain the choice in [`docs/architecture.md`](docs/architecture.md)), and Mailpit (SMTP sink for local email).
 
-## Quickstart
+## Key results
 
-Requires Docker Desktop and a JDK 21+ (nothing else: the bootstrap is plain Java).
+The validation harness checks the release bar against a running Compose stack:
+
+- three tenants isolated by PostgreSQL RLS
+- 950 idempotent usage events under client retries and Kafka redelivery
+- billing recomputed independently and matched to the cent
+- per-tenant rate limits
+- STOMP dashboard latency (p50/p95/p99). It passes only if p95 < 850ms and at least 18 of the first 20 trials land within 2s
+
+With the demo seed, Acme's previous-month usage bills to **278.69 USD** and Globex's to **249.00 USD**. I calculated these by hand in the seed file's comments, and `meterly-validation` recomputes them on its own.
+
+## How to run it
+
+You need Docker Desktop and JDK 21+. Nothing else, since the bootstrap is plain Java.
 
 ```bash
 java scripts/Bootstrap.java       # generates .env + secrets/jwt-{private,public}.pem (gitignored, once)
 docker compose up -d --build      # postgres, redis, redpanda, migrator, all 5 services, web, mailpit
 ```
 
-(`pwsh scripts/bootstrap.ps1` does the same on PowerShell 7+.)
+On PowerShell 7+, `pwsh scripts/bootstrap.ps1` does the same thing.
 
-Wait for everything healthy (`docker compose ps`), then:
+Wait until everything is healthy (`docker compose ps`), then open:
 
 | What | URL |
 |---|---|
@@ -88,20 +96,15 @@ Wait for everything healthy (`docker compose ps`), then:
 
 ### Demo credentials
 
-The migrator seeds two demo tenants (`db/demo/R__demo_seed.sql`, only applied when
-`MIGRATION_LOCATIONS` includes `classpath:db/demo` — the Compose default; see
-[`docs/operations.md`](docs/operations.md) for disabling it in a real deployment):
+The migrator seeds two demo tenants from `db/demo/R__demo_seed.sql`. This seed is only applied when `MIGRATION_LOCATIONS` includes `classpath:db/demo`, which is the Compose default. [`docs/operations.md`](docs/operations.md) shows how to turn it off for a real deployment.
 
-Demo passwords and API keys are generated locally: see `scripts/bootstrap.ps1` and the demo seed (`meterly-db/src/main/resources/db/demo/R__demo_seed.sql`).
+Demo passwords and API keys are generated locally. See `scripts/bootstrap.ps1` and the demo seed (`meterly-db/src/main/resources/db/demo/R__demo_seed.sql`).
 
 | Tenant | Login | Password | Plan | API key |
 |---|---|---|---|---|
 | Acme Corp | `admin@acme.test` | `<demo-password>` | STARTER | `<your-api-key>` |
-| Acme Corp | `viewer@acme.test` (TENANT_USER) | `<demo-password>` | — | — |
+| Acme Corp | `viewer@acme.test` (TENANT_USER) | `<demo-password>` | n/a | n/a |
 | Globex | `admin@globex.test` | `<demo-password>` | GROWTH | `<your-api-key>` |
-
-Acme's previous-month usage bills to **278.69 USD**; Globex's to **249.00 USD** (hand-calculated in
-the seed file's comments — this is also what `meterly-validation` independently recomputes).
 
 ### curl examples
 
@@ -120,28 +123,20 @@ curl -s -X POST http://localhost:8080/v1/usage-events \
 curl -s http://localhost:8080/v1/usage/current -H "Authorization: Bearer $TOKEN"
 ```
 
-Full request/response shapes, error codes and the Kafka/Redis contract are in
-[`docs/api-contract.md`](docs/api-contract.md).
+Full request and response shapes, error codes, and the Kafka/Redis contract are in [`docs/api-contract.md`](docs/api-contract.md).
 
-## Tests
+### Tests
 
 ```bash
 ./mvnw -B -ntp verify                      # every backend module: unit + ArchUnit + Testcontainers ITs
 cd meterly-web && npm ci && npm test       # Angular unit tests (headless Chrome in CI)
 ```
 
-CI (`.github/workflows/ci.yml`) runs both plus a matrix Docker image build (all 6 backend targets +
-web) and a secret scan on every push/PR. Dependabot (`.github/dependabot.yml`) keeps Maven, npm,
-Docker base images and GitHub Actions current, weekly.
+CI (`.github/workflows/ci.yml`) runs both, plus a matrix Docker image build (all 6 backend targets and the web app) and a secret scan on every push and PR. Dependabot (`.github/dependabot.yml`) keeps Maven, npm, Docker base images and GitHub Actions up to date every week.
 
-## Validation harness
+### Validation harness
 
-`meterly-validation` is a plain-Java black-box harness (no Testcontainers, no mocks) that proves the
-release bar in [`docs/api-contract.md` §9](docs/api-contract.md#9-validation-bar-release-evidence)
-against a **running** Compose stack: three tenants + PostgreSQL RLS, 950 idempotent usage events under
-client retries and Kafka redelivery, independently recomputed cent-accurate billing, per-tenant rate
-limits, and STOMP dashboard latency (p50/p95/p99, pass iff p95 < 850ms and ≥ 18/20 of the first 20
-trials land within 2s).
+`meterly-validation` is a plain-Java black-box harness (no Testcontainers, no mocks). It proves the release bar in [`docs/api-contract.md` section 9](docs/api-contract.md#9-validation-bar-release-evidence) against a **running** Compose stack.
 
 ```bash
 export DB_APP_PASSWORD=<the value bootstrap.ps1 generated into .env>
@@ -157,43 +152,39 @@ java -jar meterly-validation/target/meterly-validation.jar load \
   --resource-id a1111111-0000-4000-8000-000000000001 --rps 20 --duration 60
 ```
 
-Exits non-zero on any failed check. `validation-output/` is gitignored.
+It exits non-zero if any check fails. `validation-output/` is gitignored.
 
-## Observability
+### Observability
 
 ```bash
 docker compose --profile observability up -d prometheus grafana postgres-exporter
 ```
 
-Grafana at http://localhost:3000 (default `admin`/`admin`, override with `GRAFANA_ADMIN_PASSWORD`),
-pre-provisioned with a Prometheus datasource and two dashboards (**Meterly - Services**: HTTP
-rate/p95 latency/status per service, JVM heap/threads; **Meterly - Usage & Billing Pipeline**:
-ingestion outcomes and rate limiting, metering inserted-vs-duplicate, billing runs by outcome, outbox
-published/backlog, reconciliation drift, notification dead-letters). Prometheus itself at
-http://localhost:9090. See [`docs/operations.md`](docs/operations.md) for metric names and what each
-panel means.
+Grafana runs at http://localhost:3000 (default `admin`/`admin`, override with `GRAFANA_ADMIN_PASSWORD`). It comes with a Prometheus datasource and two dashboards:
 
-## Kubernetes (stretch)
+- **Meterly - Services**: HTTP rate, p95 latency and status per service, JVM heap and threads
+- **Meterly - Usage & Billing Pipeline**: ingestion outcomes and rate limiting, metering inserted vs. duplicate, billing runs by outcome, outbox published and backlog, reconciliation drift, notification dead-letters
+
+Prometheus itself runs at http://localhost:9090. [`docs/operations.md`](docs/operations.md) lists the metric names and what each panel means.
+
+### Kubernetes (stretch goal)
 
 ```bash
 kubectl kustomize deploy/k8s/overlays/local   # render; `kubectl apply -k ...` against a real cluster
 ```
 
-`deploy/k8s/base` has a Deployment/Service/ConfigMap per service, a migrator Job, HPAs for
-`ingestion-service`/`metering-service`, PodDisruptionBudgets, and an Ingress for the SPA.
-PostgreSQL/Redis/Kafka are treated as externally managed infrastructure, not deployed here — see
-`deploy/k8s/base/configmap-shared.yaml` and [`docs/operations.md`](docs/operations.md).
+`deploy/k8s/base` has a Deployment, Service and ConfigMap per service, a migrator Job, HPAs for `ingestion-service` and `metering-service`, PodDisruptionBudgets, and an Ingress for the SPA. I treat PostgreSQL, Redis and Kafka as externally managed infrastructure, so they are not deployed here. See `deploy/k8s/base/configmap-shared.yaml` and [`docs/operations.md`](docs/operations.md).
 
-## Project layout
+## Project structure
 
 ```
 tenant-service/ ingestion-service/ metering-service/     Spring Boot 3.5 / Java 21 microservices
 billing-service/ notification-service/
 meterly-common/          shared library: JSON conventions, RLS/tenant context, security, events
-meterly-db/              Flyway migrations (owned per-service version ranges, see api-contract.md §8)
+meterly-db/              Flyway migrations (owned per-service version ranges, see api-contract.md section 8)
                           + the one-shot migrator app + demo seed data
 meterly-test-support/    Testcontainers helpers shared by every service's integration tests
-meterly-validation/      the exit-criteria harness and load generator (this doc, §"Validation harness")
+meterly-validation/      the validation harness and load generator (see "Validation harness")
 meterly-web/             Angular 18 SPA
 deploy/                  nginx SPA config, Postgres role bootstrap, Redpanda topic bootstrap,
                           deploy/k8s (Kubernetes), deploy/observability (Prometheus/Grafana)
@@ -204,7 +195,13 @@ scripts/Bootstrap.java   generates local-only secrets (.env, secrets/*.pem); nev
 .github/                 CI workflow + Dependabot
 ```
 
-## Explicitly out of scope
+## What I learned
 
-Multi-currency, tax, dunning, proration, payment collection, and Keycloak/OIDC federation are
-deliberate, documented gaps — see [`docs/architecture.md`](docs/architecture.md#deferred-scope).
+- Counting exactly once is a whole-pipeline problem. Client retries and Kafka redelivery both create duplicates, so I made every hop idempotent (Redis at ingestion, an idempotent ledger in metering, idempotent invoices and an outbox in billing).
+- Tenant isolation is safer in the database than in application code. PostgreSQL RLS enforces it, and only the migrator role is allowed to run DDL.
+- Money math needs one rule. I use `BigDecimal` with a single documented rounding rule, and I hand-calculated the seed invoices so the harness has a known answer to check against.
+- Tests that mock everything can still pass on a broken system. That is why I wrote a black-box harness that runs against the real stack and fails loudly.
+
+## Out of scope
+
+Multi-currency, tax, dunning, proration, payment collection, and Keycloak/OIDC federation are gaps I left on purpose and documented. See [`docs/architecture.md`](docs/architecture.md#deferred-scope).
