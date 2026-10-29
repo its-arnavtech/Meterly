@@ -92,11 +92,13 @@ The migrator seeds two demo tenants (`db/demo/R__demo_seed.sql`, only applied wh
 `MIGRATION_LOCATIONS` includes `classpath:db/demo` — the Compose default; see
 [`docs/operations.md`](docs/operations.md) for disabling it in a real deployment):
 
+Demo passwords and API keys are generated locally: see `scripts/bootstrap.ps1` and the demo seed (`meterly-db/src/main/resources/db/demo/R__demo_seed.sql`).
+
 | Tenant | Login | Password | Plan | API key |
 |---|---|---|---|---|
-| Acme Corp | `admin@acme.test` | `Meterly!2026` | STARTER | `mk_live_6Nfuu8kyqiwSqUtZKiUCFxXR_qss52QDotFDIX_3EDY` |
-| Acme Corp | `viewer@acme.test` (TENANT_USER) | `Meterly!2026` | — | — |
-| Globex | `admin@globex.test` | `Meterly!2026` | GROWTH | `mk_live_PD2LNw8f1F2RxuhbmnBm-hnoC0WQGifEW5BUKXVu4kA` |
+| Acme Corp | `admin@acme.test` | `<demo-password>` | STARTER | `<your-api-key>` |
+| Acme Corp | `viewer@acme.test` (TENANT_USER) | `<demo-password>` | — | — |
+| Globex | `admin@globex.test` | `<demo-password>` | GROWTH | `<your-api-key>` |
 
 Acme's previous-month usage bills to **278.69 USD**; Globex's to **249.00 USD** (hand-calculated in
 the seed file's comments — this is also what `meterly-validation` independently recomputes).
@@ -107,11 +109,11 @@ the seed file's comments — this is also what `meterly-validation` independentl
 # Log in
 curl -s -X POST http://localhost:8080/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"admin@acme.test","password":"Meterly!2026"}'
+  -d '{"email":"admin@acme.test","password":"<demo-password>"}'
 
 # Send a usage event with the demo API key
 curl -s -X POST http://localhost:8080/v1/usage-events \
-  -H 'X-API-Key: mk_live_6Nfuu8kyqiwSqUtZKiUCFxXR_qss52QDotFDIX_3EDY' -H 'Content-Type: application/json' \
+  -H 'X-API-Key: <your-api-key>' -H 'Content-Type: application/json' \
   -d '{"resource_id":"a1111111-0000-4000-8000-000000000001","idempotency_key":"demo-1","quantity":1}'
 
 # Current-period usage (needs a bearer token from /v1/auth/login)
@@ -151,7 +153,7 @@ java -jar meterly-validation/target/meterly-validation.jar \
 
 # Standalone soak test (not part of the pass/fail bar):
 java -jar meterly-validation/target/meterly-validation.jar load \
-  --api-key mk_live_6Nfuu8kyqiwSqUtZKiUCFxXR_qss52QDotFDIX_3EDY \
+  --api-key <your-api-key> \
   --resource-id a1111111-0000-4000-8000-000000000001 --rps 20 --duration 60
 ```
 
